@@ -309,7 +309,7 @@ export default function UploadForm({
         geoLocation: geoCoords,
         imageCount: images.length,
       });
-      await uploadVendorImages({
+     const res =  await uploadVendorImages({
         code: campaignCode,
         geoLocation: geoCoords,
         images: images.map((i) => i.file),
