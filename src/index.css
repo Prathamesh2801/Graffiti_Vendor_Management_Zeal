@@ -1,0 +1,88 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Barlow:wght@400;500;600&display=swap");
+@import "leaflet/dist/leaflet.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #e8420a;
+    --color-primary-light: #f6a080;
+    --color-primary-dark: #a62e06;
+    --color-primary-50: #fdeae3;
+    --color-primary-200: #f6a080;
+    --color-primary-500: #e8420a;
+    --color-primary-700: #a62e06;
+    --color-primary-900: #5c1902;
+
+    --color-secondary: #1a1a2e;
+    --color-accent: #f7c948;
+
+    --color-complement: #0ab8a8;
+    --color-complement-dark: #073b3a;
+
+    --color-analogous-1: #f56a00;
+    --color-analogous-2: #c92a2a;
+    --color-analogous-3: #a0155a;
+
+    --color-text-primary: #1a1a2e;
+    --color-text-secondary: #5a5a72;
+    --color-text-muted: #9898aa;
+
+    --color-bg: #f5f4f0;
+    --color-bg-secondary: #eceae4;
+    --color-bg-card: #ffffff;
+
+    --color-border: rgba(26, 26, 46, 0.12);
+    --color-border-strong: rgba(26, 26, 46, 0.25);
+
+    --color-success: #27ae60;
+    --color-warning: #f7c948;
+    --color-error: #c92a2a;
+
+    --sidebar-width: 240px;
+    --font-display: "Barlow Condensed", sans-serif;
+    --font-body: "Barlow", sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    letter-spacing: 0.02em;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-body {
+    font-family: var(--font-body);
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: 4px;
+  }
+}
