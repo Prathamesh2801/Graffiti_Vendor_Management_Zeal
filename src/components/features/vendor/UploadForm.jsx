@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ImagePreviewGrid from "./ImagePreviewGrid";
-import { uploadVendorImages } from "../../../api/vendorApi";
 import { getImages, saveImages } from "../../../utils/indexedDB";
 import { registerBackgroundSync } from "../../../utils/registerSync";
 
@@ -229,43 +228,29 @@ export default function UploadForm({
   /* ── Submit ── */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitError("");
 
-    if (!geoCoords) {
-      setSubmitError("Please capture your location before submitting.");
-      return;
-    }
-    if (images.length === 0) {
-      setSubmitError("Please add at least one image.");
-      return;
-    }
-
-    if (images.length > 20) {
-      alert("Too many images stored offline. Please sync first.");
-      return;
-    }
+    if (!geoCoords) return;
+    if (images.length === 0) return;
 
     setSubmitting(true);
+    setSubmitError("");
 
-    const submissionId = `sub_${Date.now()}`;
-    const base = {
-      id: submissionId,
-      code: campaignCode,
-      geoLocation: geoCoords,
-      timestamp: new Date().toISOString(),
-      imageCount: images.length,
-    };
+    try {
+      const submissionId = editingRecord
+        ? editingRecord.ID
+        : `sub_${Date.now()}`;
 
-    if (!isOnline) {
-      // 🔥 EDIT MODE
+      const base = {
+        id: submissionId,
+        code: campaignCode,
+        geoLocation: geoCoords,
+        timestamp: new Date().toISOString(),
+        imageCount: images.length,
+      };
+
+      // 🔴 OFFLINE OR ONLINE → SAME FLOW (QUEUE ONLY)
+
       if (editingRecord) {
-        // 1. Update IndexedDB with NEW images
-        await saveImages(
-          editingRecord.imageIds,
-          images.map((i) => i.file),
-        );
-
-        // 2. Update localStorage queue
         const queue = JSON.parse(
           localStorage.getItem("vendor_offline_queue") || "[]",
         );
@@ -276,14 +261,14 @@ export default function UploadForm({
                 ...item,
                 code: campaignCode,
                 geoLocation: geoCoords,
-                imageIds: editingRecord.imageIds,
+                status: "ready",
+                error: null,
               }
             : item,
         );
 
         localStorage.setItem("vendor_offline_queue", JSON.stringify(updated));
       } else {
-        // 🔥 NEW SUBMISSION (same as before)
         await saveImages(
           submissionId,
           images.map((i) => i.file),
@@ -292,40 +277,23 @@ export default function UploadForm({
         enqueueOffline({
           ...base,
           imageIds: submissionId,
-          status: "draft",
+          status: "ready",
         });
       }
 
-      await registerBackgroundSync();
-
+      // 🔥 ALWAYS RESET FIRST
       setSubmitting(false);
-      onSubmitted({ ...base, status: "Queued (Offline)" });
-      return;
-    }
 
-    try {
-      console.log("🚀 ONLINE SUBMIT PAYLOAD:", {
-        code: campaignCode,
-        geoLocation: geoCoords,
-        imageCount: images.length,
+      // 🔥 THEN NAVIGATE
+      onSubmitted({
+        ...base,
+        status: "Pending",
       });
-     const res =  await uploadVendorImages({
-        code: campaignCode,
-        geoLocation: geoCoords,
-        images: images.map((i) => i.file),
-      });
-
-      console.log("✅ ONLINE SUBMIT RESPONSE:", res);
-      setSubmitting(false);
-      onSubmitted({ ...base, status: "Pending" });
     } catch (err) {
-      console.error("❌ ONLINE SUBMIT ERROR:", err?.response?.data || err);
-      setSubmitError(
-        err?.response?.data?.Message ||
-          err?.message ||
-          "Submission failed. Try again.",
-      );
-      setSubmitting(false);
+      console.error("❌ SUBMIT ERROR:", err);
+
+      setSubmitError("Something went wrong. Try again.");
+      setSubmitting(false); // 🔥 CRITICAL
     }
   };
 
@@ -364,8 +332,14 @@ export default function UploadForm({
             color: "var(--color-secondary)",
           }}
         >
-          Upload Images
+          {isEditMode ? "Fix Submission" : "Upload Images"}
         </h2>
+
+        {isEditMode && (
+          <p className="text-xs text-yellow-600 font-semibold">
+            ⚠️ You are editing a failed submission
+          </p>
+        )}
         <p
           className="text-sm leading-relaxed mb-6"
           style={{ color: "var(--color-text-secondary)" }}
@@ -596,6 +570,8 @@ export default function UploadForm({
                   />
                   Submitting…
                 </>
+              ) : isEditMode ? (
+                <>Update & Resubmit</>
               ) : isOnline ? (
                 <>
                   Submit <span className="text-lg leading-none">→</span>

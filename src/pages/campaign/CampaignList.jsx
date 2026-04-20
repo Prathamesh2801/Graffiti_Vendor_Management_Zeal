@@ -17,6 +17,7 @@ import CampaignPagination from "../../components/features/campaign/CampaignPagin
 import CampaignFormModal from "../../components/features/campaign/CampaignFormModal";
 import DeleteConfirmModal from "../../components/features/campaign/DeleteConfirmModal";
 import ViewCampaignModal from "../../components/features/campaign/ViewCampaignModal";
+import VendorSubmissions from "../../components/features/campaign/VendorSubmissions";
 
 const EMPTY_FORM = {
   name: "",
@@ -39,6 +40,9 @@ export default function CampaignList() {
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [viewTarget, setViewTarget] = useState(null);
+
+  // Vendor Submissions view — holds the campaign to show submissions for
+  const [submissionCampaign, setSubmissionCampaign] = useState(null);
 
   // Toolbar state
   const [search, setSearch] = useState("");
@@ -198,7 +202,7 @@ export default function CampaignList() {
         setEditTarget(null);
         fetchCampaigns();
       } else toast.error(res.Message || "Failed to update");
-    } catch {
+    } catch (err) {
       console.log("Update Error:", err.response?.data || err);
       toast.error("Failed to update campaign");
     } finally {
@@ -240,23 +244,15 @@ export default function CampaignList() {
   const exportCampaignCodes = async (campaign) => {
     try {
       const res = await getCampaignCodes(campaign.id);
-
       if (res.Status && res.Codes) {
-        const data = res.Codes.map((code, i) => ({
-          SrNo: i + 1,
-          Code: code,
-        }));
-
+        const data = res.Codes.map((code, i) => ({ SrNo: i + 1, Code: code }));
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
-
         XLSX.utils.book_append_sheet(wb, ws, "Codes");
-
         saveAs(
           new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })]),
           `${campaign.name}_Codes.xlsx`,
         );
-
         toast.success("Codes exported!");
       } else {
         toast.error("No codes found for this campaign");
@@ -282,6 +278,16 @@ export default function CampaignList() {
     if (dateTo) data = data.filter((c) => c.endDate <= dateTo);
     return data.length;
   })();
+
+  // ── If a campaign's submissions are being viewed, render VendorSubmissions ──
+  if (submissionCampaign) {
+    return (
+      <VendorSubmissions
+        campaign={submissionCampaign}
+        onBack={() => setSubmissionCampaign(null)}
+      />
+    );
+  }
 
   return (
     <div
@@ -390,6 +396,11 @@ export default function CampaignList() {
           onEdit={() => {
             setViewTarget(null);
             openEdit(viewTarget);
+          }}
+          // ── NEW: opens VendorSubmissions for this campaign ──
+          onViewSubmissions={() => {
+            setViewTarget(null);
+            setSubmissionCampaign(viewTarget);
           }}
         />
       )}

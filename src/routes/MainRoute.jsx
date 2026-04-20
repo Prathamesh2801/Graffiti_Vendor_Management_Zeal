@@ -7,6 +7,7 @@ import AppRedirect from "./AppRedirect";
 import Login from "../pages/auth/Login";
 import AppLayout from "../components/layout/AppLayout";
 import Dashboard from "../pages/dashboard/Dashboard";
+import CampaignMap from "../pages/geolocation/Geolocation";
 import UserAuth from "../pages/admin/UserAuth";
 import CampaignList from "../pages/campaign/CampaignList";
 import VendorDashboard from "../pages/vendor/VendorDashboard";
@@ -17,6 +18,12 @@ export default function MainRoute() {
       path: "/",
       element: <RootRedirect />,
     },
+    {
+      path: "/geo",
+      element: <CampaignMap />,
+      
+    },
+
     {
       path: "/login",
       element: (

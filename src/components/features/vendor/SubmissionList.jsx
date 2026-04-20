@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getVendorRecords } from "../../../api/vendorApi";
+
 import { BASE_URL } from "../../../../config";
 import { getImages } from "../../../utils/indexedDB";
 
@@ -53,6 +53,12 @@ const STATUS = {
     bg: "rgba(201,42,42,0.1)",
     border: "rgba(201,42,42,0.3)",
     text: "#a62e06",
+    dot: "#c92a2a",
+  },
+  Failed: {
+    bg: "rgba(201,42,42,0.1)",
+    border: "rgba(201,42,42,0.3)",
+    text: "#c92a2a",
     dot: "#c92a2a",
   },
 };
@@ -160,7 +166,7 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
         Status: "Pending",
       }))
     : record.Campaign_Images || [];
-  const overallStatus = record.isOffline ? "Queued (Offline)" : record.Status;
+  const overallStatus = record.Status;
 
   return (
     <>
@@ -286,12 +292,13 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
                 >
                   Submit
                 </button>
+                  {record.error && (
+              <p className="text-xs text-red-500 mt-2">❌ {record.error}</p>
+            )}
               </div>
             )}
 
-            {record.error && (
-              <p className="text-xs text-red-500 mt-2">❌ {record.error}</p>
-            )}
+          
             <div>
               <p
                 className="font-bold uppercase tracking-wider mb-0.5"
@@ -454,45 +461,11 @@ export default function SubmissionList({
   onEdit,
   onSubmit,
   syncedIds,
+  records,
+  loading,
+  error,
 }) {
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [filter, setFilter] = useState("All");
-
-  const fetchRecords = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const data = await getVendorRecords();
-
-      if (data?.Status && Array.isArray(data.Records)) {
-        setRecords(data.Records);
-
-        // ✅ SAVE TO LOCAL STORAGE
-        localStorage.setItem(
-          "vendor_records_cache",
-          JSON.stringify(data.Records),
-        );
-      }
-    } catch (err) {
-      // ❗ fallback happens below
-      const cached = localStorage.getItem("vendor_records_cache");
-
-      if (cached) {
-        setRecords(JSON.parse(cached));
-      } else {
-        setError("No offline data available.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchRecords();
-  }, []);
 
   const getOfflineRecords = () => {
     const queue = JSON.parse(
@@ -503,6 +476,7 @@ export default function SubmissionList({
       .filter((item) => !syncedIds.includes(item.id))
       .map((item) => ({
         ID: item.id,
+        code: item.code,
         Campaign_ID: item.code,
         Created_AT: item.timestamp,
         Updated_AT: item.timestamp,
@@ -516,6 +490,7 @@ export default function SubmissionList({
         Campaign_Images: [],
         isOffline: true,
         imageIds: item.imageIds,
+        error: item.error,
       }));
   };
 
@@ -535,69 +510,6 @@ export default function SubmissionList({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p
-            className="text-xs font-bold uppercase tracking-widest mb-1"
-            style={{
-              fontFamily: "var(--font-display)",
-              color: "var(--color-primary)",
-            }}
-          >
-            My Submissions
-          </p>
-          <h2
-            className="text-3xl font-black leading-none"
-            style={{
-              fontFamily: "var(--font-display)",
-              color: "var(--color-secondary)",
-            }}
-          >
-            Records
-          </h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            type="button"
-            onClick={fetchRecords}
-            disabled={loading}
-            className="h-9 px-4 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border"
-            style={{
-              fontFamily: "var(--font-display)",
-              color: "var(--color-text-secondary)",
-              borderColor: "var(--color-border-strong)",
-              background: "var(--color-bg-card)",
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
-            <motion.span
-              animate={loading ? { rotate: 360 } : {}}
-              transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-            >
-              ↻
-            </motion.span>
-            Refresh
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.03, y: -1 }}
-            whileTap={{ scale: 0.97 }}
-            type="button"
-            onClick={onNewSubmission}
-            className="h-9 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-white"
-            style={{
-              fontFamily: "var(--font-display)",
-              background: "var(--color-primary)",
-              boxShadow: "0 4px 12px rgba(232,66,10,0.25)",
-            }}
-          >
-            + New
-          </motion.button>
-        </div>
-      </div>
-
       {/* Summary pills */}
       {records.length > 0 && (
         <div className="flex gap-2 flex-wrap">
@@ -702,7 +614,7 @@ export default function SubmissionList({
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             type="button"
-            onClick={fetchRecords}
+            // onClick={fetchRecords}
             className="h-9 px-5 rounded-xl text-xs font-bold uppercase tracking-wider text-white"
             style={{
               fontFamily: "var(--font-display)",

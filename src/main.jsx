@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
 import { registerSW } from "virtual:pwa-register";
+import { initPwaPromptListener } from "./utils/pwaPrompt.js";
 
 registerSW({
   onNeedRefresh() {
@@ -12,10 +13,8 @@ registerSW({
     console.log("App ready for offline use");
   },
 });
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  setPrompt(e);
-});
+
+initPwaPromptListener();
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
