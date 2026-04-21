@@ -18,6 +18,8 @@ import CampaignFormModal from "../../components/features/campaign/CampaignFormMo
 import DeleteConfirmModal from "../../components/features/campaign/DeleteConfirmModal";
 import ViewCampaignModal from "../../components/features/campaign/ViewCampaignModal";
 import VendorSubmissions from "../../components/features/campaign/VendorSubmissions";
+import CampaignQrModal from "../../components/features/campaign/CampaignQrModal";
+import { getUserFromStorage } from "../../utils/userRoleLocalStorage";
 
 const EMPTY_FORM = {
   name: "",
@@ -41,6 +43,9 @@ export default function CampaignList() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [viewTarget, setViewTarget] = useState(null);
 
+  // QR Modal — holds the campaign to show QR for
+  const [qrCampaign, setQrCampaign] = useState(null);
+
   // Vendor Submissions view — holds the campaign to show submissions for
   const [submissionCampaign, setSubmissionCampaign] = useState(null);
 
@@ -56,6 +61,9 @@ export default function CampaignList() {
   // Form
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+
+  const user = getUserFromStorage();
+  const isAdmin = user?.role?.toLowerCase() === "admin";
 
   useEffect(() => {
     fetchCampaigns();
@@ -345,6 +353,9 @@ export default function CampaignList() {
           onEdit={openEdit}
           onDelete={setDeleteTarget}
           onExportCodes={exportCampaignCodes}
+          // ── NEW: opens QR modal for this campaign ──
+          onShowQr={setQrCampaign}
+          isAdmin={isAdmin}
         />
 
         <CampaignPagination
@@ -392,16 +403,24 @@ export default function CampaignList() {
       {viewTarget && (
         <ViewCampaignModal
           campaign={viewTarget}
+          isAdmin={isAdmin}
           onClose={() => setViewTarget(null)}
           onEdit={() => {
             setViewTarget(null);
             openEdit(viewTarget);
           }}
-          // ── NEW: opens VendorSubmissions for this campaign ──
           onViewSubmissions={() => {
             setViewTarget(null);
             setSubmissionCampaign(viewTarget);
           }}
+        />
+      )}
+
+      {/* ── QR Code Modal ── */}
+      {qrCampaign && (
+        <CampaignQrModal
+          campaign={qrCampaign}
+          onClose={() => setQrCampaign(null)}
         />
       )}
     </div>

@@ -7,7 +7,8 @@ import { BASE_URL } from "../../../config";
 /* ─── Leaflet icon fix ─────────────────────────────────────────── */
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
@@ -35,31 +36,46 @@ function FitBounds({ positions }) {
   const map = useMap();
   useEffect(() => {
     if (!positions.length) return;
-    if (positions.length === 1) { map.setView(positions[0], 16); return; }
+    if (positions.length === 1) {
+      map.setView(positions[0], 16);
+      return;
+    }
     map.fitBounds(L.latLngBounds(positions), { padding: [50, 50] });
   }, [positions, map]);
   return null;
 }
 
 /* ─── Helpers ──────────────────────────────────────────────────── */
-const getCampaignIdFromUrl = () =>
-  new URLSearchParams(window.location.search).get("Campaign_ID") || null;
+const getCampaignIdFromUrl = () => {
+  const hash = window.location.hash;
 
-const PALETTE = ["#e8420a", "#0ab8a8", "#f7c948", "#a62e06", "#7b2ff7", "#27ae60", "#1a1a2e"];
+  const queryString = hash.includes("?") ? hash.split("?")[1] : "";
+
+  return new URLSearchParams(queryString).get("Campaign_ID");
+};
+const PALETTE = [
+  "#e8420a",
+  "#0ab8a8",
+  "#f7c948",
+  "#a62e06",
+  "#7b2ff7",
+  "#27ae60",
+  "#1a1a2e",
+];
 
 /* ═══════════════════════════════════════════════════════════════ */
 export default function CampaignMap() {
-  const [campaignId,  setCampaignId]  = useState(getCampaignIdFromUrl);
-  const [inputId,     setInputId]     = useState("");
-  const [records,     setRecords]     = useState([]);
-  const [loading,     setLoading]     = useState(false);
-  const [error,       setError]       = useState(null);
-  const [selected,    setSelected]    = useState(null);
+  const [campaignId, setCampaignId] = useState(() => getCampaignIdFromUrl());
+  const [inputId, setInputId] = useState("");
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile: closed by default
-  const [drawerOpen,  setDrawerOpen]  = useState(false);
-  const [activeTab,   setActiveTab]   = useState("list");
-  const [imgModal,    setImgModal]    = useState(null);
-  const [isMobile,    setIsMobile]    = useState(window.innerWidth < 768);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("list");
+  const [imgModal, setImgModal] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   /* track screen size */
   useEffect(() => {
@@ -70,46 +86,74 @@ export default function CampaignMap() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      const urlId = getCampaignIdFromUrl();
+      if (urlId) {
+        setCampaignId(urlId);
+        setInputId(urlId);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   /* ── fetch ── */
   const fetchData = async (id) => {
     if (!id) return;
-    setLoading(true); setError(null); setRecords([]);
-    setSelected(null); setDrawerOpen(false);
+    setLoading(true);
+    setError(null);
+    setRecords([]);
+    setSelected(null);
+    setDrawerOpen(false);
     try {
-      const res  = await fetch(`${BASE_URL}/map.php?Campaign_ID=${id}`);
+      const res = await fetch(`${BASE_URL}/map.php?Campaign_ID=${id}`);
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       const data = await res.json();
       if (!data.Status) throw new Error(data.Message || "No records returned");
       setRecords(data.Records || []);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { if (campaignId) fetchData(campaignId); }, [campaignId]);
+  useEffect(() => {
+    if (campaignId) fetchData(campaignId);
+  }, [campaignId]);
 
   const handleLoad = (e) => {
     e?.preventDefault?.();
     const t = inputId.trim();
-    if (t) { setCampaignId(t); setInputId(""); }
+    if (t) {
+      setCampaignId(t);
+      setInputId("");
+    }
   };
 
   /* ── derived ── */
-  const geoRecords = records.filter(r =>
-    r.Location && r.Location !== "Vendor" && r.Location.includes(",")
+  const geoRecords = records.filter(
+    (r) => r.Location && r.Location !== "Vendor" && r.Location.includes(","),
   );
-  const positions     = geoRecords.map(r => r.Location.split(",").map(Number));
+  const positions = geoRecords.map((r) => r.Location.split(",").map(Number));
   const defaultCenter = positions[0] ?? [19.2226, 72.8312];
 
   const userGroups = {};
   const userColors = {};
-  records.forEach(r => { userGroups[r.User_ID] = (userGroups[r.User_ID] || 0) + 1; });
-  Object.keys(userGroups).forEach((u, i) => { userColors[u] = PALETTE[i % PALETTE.length]; });
+  records.forEach((r) => {
+    userGroups[r.User_ID] = (userGroups[r.User_ID] || 0) + 1;
+  });
+  Object.keys(userGroups).forEach((u, i) => {
+    userColors[u] = PALETTE[i % PALETTE.length];
+  });
 
   const stats = {
-    total:      records.length,
-    withImages: records.filter(r => r.Campaign_Images?.length > 0).length,
-    withGPS:    geoRecords.length,
-    pending:    records.filter(r => r.Status !== "Approved").length,
+    total: records.length,
+    withImages: records.filter((r) => r.Campaign_Images?.length > 0).length,
+    withGPS: geoRecords.length,
+    pending: records.filter((r) => r.Status !== "Approved").length,
   };
 
   /* ── open record ── */
@@ -465,14 +509,13 @@ export default function CampaignMap() {
       <style>{css}</style>
 
       <div className="cm-root">
-
         {/* ══ HEADER ══ */}
         <header className="cm-header">
           {/* mobile hamburger — only show when map is loaded */}
           {records.length > 0 && (
             <button
               className="cm-menu-btn"
-              onClick={() => setSidebarOpen(o => !o)}
+              onClick={() => setSidebarOpen((o) => !o)}
               title="Toggle sidebar"
               style={{ display: isMobile ? "flex" : "none" }}
             >
@@ -489,7 +532,7 @@ export default function CampaignMap() {
           {records.length > 0 && (
             <button
               className="cm-menu-btn"
-              onClick={() => setSidebarOpen(o => !o)}
+              onClick={() => setSidebarOpen((o) => !o)}
               title="Toggle sidebar"
               style={{ display: isMobile ? "none" : "flex" }}
             >
@@ -501,10 +544,12 @@ export default function CampaignMap() {
             <input
               className="cm-hinput"
               value={inputId}
-              onChange={e => setInputId(e.target.value)}
+              onChange={(e) => setInputId(e.target.value)}
               placeholder="Campaign ID…"
             />
-            <button className="cm-hload" type="submit">Load</button>
+            <button className="cm-hload" type="submit">
+              Load
+            </button>
           </form>
         </header>
 
@@ -515,18 +560,22 @@ export default function CampaignMap() {
             <h2 className="cm-ctitle">No Campaign Found</h2>
             <p className="cm-csub">
               Enter a Campaign ID below, or add{" "}
-              <code style={{ color: "var(--color-primary,#e8420a)" }}>?Campaign_ID=cmp_xxx</code>{" "}
+              <code style={{ color: "var(--color-primary,#e8420a)" }}>
+                ?Campaign_ID=cmp_xxx
+              </code>{" "}
               to the page URL.
             </p>
             <form className="cm-bform" onSubmit={handleLoad}>
               <input
                 className="cm-binput"
                 value={inputId}
-                onChange={e => setInputId(e.target.value)}
+                onChange={(e) => setInputId(e.target.value)}
                 placeholder="e.g. cmp_69df62026e82f"
                 autoFocus
               />
-              <button className="cm-bbtn" type="submit">View Map →</button>
+              <button className="cm-bbtn" type="submit">
+                View Map →
+              </button>
             </form>
           </div>
         )}
@@ -543,9 +592,16 @@ export default function CampaignMap() {
         {campaignId && !loading && error && (
           <div className="cm-center">
             <div className="cm-icon">⚠️</div>
-            <h2 className="cm-ctitle" style={{ color: "var(--color-error,#c92a2a)" }}>Something went wrong</h2>
+            <h2
+              className="cm-ctitle"
+              style={{ color: "var(--color-error,#c92a2a)" }}
+            >
+              Something went wrong
+            </h2>
             <p className="cm-csub">{error}</p>
-            <button className="cm-bbtn" onClick={() => fetchData(campaignId)}>↻ Try Again</button>
+            <button className="cm-bbtn" onClick={() => fetchData(campaignId)}>
+              ↻ Try Again
+            </button>
           </div>
         )}
 
@@ -554,14 +610,15 @@ export default function CampaignMap() {
           <div className="cm-center">
             <div className="cm-icon">📭</div>
             <h2 className="cm-ctitle">No Records</h2>
-            <p className="cm-csub">No locations found for <code>{campaignId}</code>.</p>
+            <p className="cm-csub">
+              No locations found for <code>{campaignId}</code>.
+            </p>
           </div>
         )}
 
         {/* ══ MAIN VIEW ══ */}
         {campaignId && !loading && !error && records.length > 0 && (
           <div className="cm-body">
-
             {/* Mobile overlay — tap outside sidebar to close */}
             <div
               className={`cm-overlay${sidebarOpen && isMobile ? " show" : ""}`}
@@ -571,38 +628,62 @@ export default function CampaignMap() {
             {/* ── Sidebar ── */}
             <aside className={`cm-sidebar${sidebarOpen ? "" : " closed"}`}>
               <div className="cm-sidebar-inner">
-
                 {/* Close button inside sidebar on mobile */}
                 {isMobile && (
-                  <div style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "10px 14px 0",
-                  }}>
-                    <span style={{
-                      fontFamily: "var(--font-display,'Barlow Condensed',sans-serif)",
-                      fontSize: 14, fontWeight: 800, textTransform: "uppercase",
-                      letterSpacing: ".06em", color: "var(--color-text-muted,#9898aa)",
-                    }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 14px 0",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily:
+                          "var(--font-display,'Barlow Condensed',sans-serif)",
+                        fontSize: 14,
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: ".06em",
+                        color: "var(--color-text-muted,#9898aa)",
+                      }}
+                    >
                       Locations
                     </span>
                     <button
                       onClick={() => setSidebarOpen(false)}
                       style={{
-                        background: "var(--color-bg,#f5f4f0)", border: "none",
-                        borderRadius: "50%", width: 28, height: 28,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        cursor: "pointer", fontSize: 14, color: "var(--color-text-muted,#9898aa)",
+                        background: "var(--color-bg,#f5f4f0)",
+                        border: "none",
+                        borderRadius: "50%",
+                        width: 28,
+                        height: 28,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        color: "var(--color-text-muted,#9898aa)",
                       }}
-                    >✕</button>
+                    >
+                      ✕
+                    </button>
                   </div>
                 )}
 
                 {/* Tabs */}
                 <div className="cm-tabs">
-                  <button className={`cm-tab${activeTab === "list" ? " on" : ""}`} onClick={() => setActiveTab("list")}>
+                  <button
+                    className={`cm-tab${activeTab === "list" ? " on" : ""}`}
+                    onClick={() => setActiveTab("list")}
+                  >
                     📋 Locations
                   </button>
-                  <button className={`cm-tab${activeTab === "stats" ? " on" : ""}`} onClick={() => setActiveTab("stats")}>
+                  <button
+                    className={`cm-tab${activeTab === "stats" ? " on" : ""}`}
+                    onClick={() => setActiveTab("stats")}
+                  >
                     📊 Stats
                   </button>
                 </div>
@@ -612,13 +693,27 @@ export default function CampaignMap() {
                   <div className="cm-stats">
                     <div className="cm-sg">
                       {[
-                        { label: "Total",     val: stats.total,      color: "#1a1a2e" },
-                        { label: "w/ Photos", val: stats.withImages, color: "#27ae60" },
-                        { label: "w/ GPS",    val: stats.withGPS,    color: "#0ab8a8" },
-                        { label: "Pending",   val: stats.pending,    color: "#f7c948" },
-                      ].map(s => (
+                        { label: "Total", val: stats.total, color: "#1a1a2e" },
+                        {
+                          label: "w/ Photos",
+                          val: stats.withImages,
+                          color: "#27ae60",
+                        },
+                        {
+                          label: "w/ GPS",
+                          val: stats.withGPS,
+                          color: "#0ab8a8",
+                        },
+                        {
+                          label: "Pending",
+                          val: stats.pending,
+                          color: "#f7c948",
+                        },
+                      ].map((s) => (
                         <div className="cm-sc" key={s.label}>
-                          <div className="cm-sn" style={{ color: s.color }}>{s.val}</div>
+                          <div className="cm-sn" style={{ color: s.color }}>
+                            {s.val}
+                          </div>
                           <div className="cm-sl">{s.label}</div>
                         </div>
                       ))}
@@ -627,30 +722,58 @@ export default function CampaignMap() {
                     <div className="cm-sh">By Vendor</div>
                     {Object.entries(userGroups).map(([u, c]) => (
                       <div className="cm-vr" key={u}>
-                        <div className="cm-vdot" style={{ background: userColors[u] }} />
+                        <div
+                          className="cm-vdot"
+                          style={{ background: userColors[u] }}
+                        />
                         <span className="cm-vname">{u}</span>
                         <div className="cm-vbw">
-                          <div className="cm-vb" style={{ width: `${(c / stats.total) * 100}%`, background: userColors[u] }} />
+                          <div
+                            className="cm-vb"
+                            style={{
+                              width: `${(c / stats.total) * 100}%`,
+                              background: userColors[u],
+                            }}
+                          />
                         </div>
                         <span className="cm-vc">{c}</span>
                       </div>
                     ))}
 
-                    <div className="cm-sh" style={{ marginTop: 16 }}>Legend</div>
-                    <div className="cm-vr"><div className="cm-vdot" style={{ background: "#27ae60" }} /><span style={{ fontSize: 12 }}>Has photos</span></div>
-                    <div className="cm-vr"><div className="cm-vdot" style={{ background: "#e8420a" }} /><span style={{ fontSize: 12 }}>No photos yet</span></div>
+                    <div className="cm-sh" style={{ marginTop: 16 }}>
+                      Photo Status
+                    </div>
+                    <div className="cm-vr">
+                      <div
+                        className="cm-vdot"
+                        style={{ background: "#27ae60" }}
+                      />
+                      <span style={{ fontSize: 12 }}>Has photos</span>
+                    </div>
+                    <div className="cm-vr">
+                      <div
+                        className="cm-vdot"
+                        style={{ background: "#e8420a" }}
+                      />
+                      <span style={{ fontSize: 12 }}>No photos yet</span>
+                    </div>
                   </div>
                 )}
 
                 {/* ── List tab ── */}
                 {activeTab === "list" && (
                   <>
-                    <div className="cm-lh">All Locations ({records.length})</div>
+                    <div className="cm-lh">
+                      All Locations ({records.length})
+                    </div>
                     <div className="cm-list">
-                      {records.map(rec => {
-                        const hasGPS  = rec.Location && rec.Location !== "Vendor" && rec.Location.includes(",");
+                      {records.map((rec) => {
+                        const hasGPS =
+                          rec.Location &&
+                          rec.Location !== "Vendor" &&
+                          rec.Location.includes(",");
                         const hasPics = rec.Campaign_Images?.length > 0;
-                        const isOn    = selected?.ID === rec.ID;
+                        const isOn = selected?.ID === rec.ID;
                         return (
                           <div
                             key={rec.ID}
@@ -658,19 +781,39 @@ export default function CampaignMap() {
                             onClick={() => openRecord(rec)}
                           >
                             <div className="cm-rt">
-                              <div style={{
-                                width: 8, height: 8, borderRadius: "50%",
-                                flexShrink: 0, background: userColors[rec.User_ID],
-                              }} />
+                              <div
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: "50%",
+                                  flexShrink: 0,
+                                  background: userColors[rec.User_ID],
+                                }}
+                              />
                               <span className="cm-rn">{rec.User_ID}</span>
-                              {hasPics && <span className="cm-badge cm-bg">📸 {rec.Campaign_Images.length}</span>}
-                              {hasGPS  && <span className="cm-badge cm-bt">GPS</span>}
-                              {!hasGPS && !hasPics && <span className="cm-badge cm-bgy">Pending</span>}
+                              {hasPics && (
+                                <span className="cm-badge cm-bg">
+                                  📸 {rec.Campaign_Images.length}
+                                </span>
+                              )}
+                              {hasGPS && (
+                                <span className="cm-badge cm-bt">GPS</span>
+                              )}
+                              {!hasGPS && !hasPics && (
+                                <span className="cm-badge cm-bgy">Pending</span>
+                              )}
                             </div>
-                            <div className="cm-rs" style={{ fontFamily: "monospace" }}>{rec.ID.slice(-10)}</div>
+                            <div
+                              className="cm-rs"
+                              style={{ fontFamily: "monospace" }}
+                            >
+                              {rec.ID.slice(-10)}
+                            </div>
                             <div className="cm-rs" style={{ marginTop: 2 }}>
                               {hasGPS
-                                ? `📍 ${rec.Location.split(",").map(n => parseFloat(n).toFixed(4)).join(", ")}`
+                                ? `📍 ${rec.Location.split(",")
+                                    .map((n) => parseFloat(n).toFixed(4))
+                                    .join(", ")}`
                                 : `🏪 ${rec.Location}`}
                             </div>
                           </div>
@@ -687,7 +830,7 @@ export default function CampaignMap() {
               {/* Floating sidebar toggle on map for mobile */}
               <button
                 className="cm-fab"
-                onClick={() => setSidebarOpen(o => !o)}
+                onClick={() => setSidebarOpen((o) => !o)}
                 title="Open sidebar"
               >
                 ☰
@@ -705,9 +848,9 @@ export default function CampaignMap() {
                 />
                 {positions.length > 0 && <FitBounds positions={positions} />}
 
-                {geoRecords.map(rec => {
+                {geoRecords.map((rec) => {
                   const [lat, lng] = rec.Location.split(",").map(Number);
-                  const hasPics    = rec.Campaign_Images?.length > 0;
+                  const hasPics = rec.Campaign_Images?.length > 0;
                   return (
                     <Marker
                       key={rec.ID}
@@ -719,19 +862,36 @@ export default function CampaignMap() {
                         <div className="cm-popup">
                           <div className="cm-ppname">{rec.User_ID}</div>
                           <div className="cm-ppid">{rec.ID}</div>
-                          <span className="cm-ppst" style={{
-                            background: rec.Status === "Approved" ? "rgba(39,174,96,.13)" : "rgba(201,42,42,.11)",
-                            color:      rec.Status === "Approved" ? "#27ae60" : "#c92a2a",
-                          }}>
+                          <span
+                            className="cm-ppst"
+                            style={{
+                              background:
+                                rec.Status === "Approved"
+                                  ? "rgba(39,174,96,.13)"
+                                  : "rgba(201,42,42,.11)",
+                              color:
+                                rec.Status === "Approved"
+                                  ? "#27ae60"
+                                  : "#c92a2a",
+                            }}
+                          >
                             {rec.Status}
                           </span>
-                          {rec.Campaign_Images?.map(img => (
+                          {rec.Campaign_Images?.map((img) => (
                             <div className="cm-ppimg" key={img.ID}>
-                              📸 Image #{img.ID}{img.Placed_BY ? ` · ${img.Placed_BY}` : ""}
+                              📸 Image #{img.ID}
+                              {img.Placed_BY ? ` · ${img.Placed_BY}` : ""}
                             </div>
                           ))}
-                          {!hasPics && <div className="cm-ppimg" style={{ color: "#bbb" }}>No images yet</div>}
-                          <button className="cm-ppbtn" onClick={() => openRecord(rec)}>
+                          {!hasPics && (
+                            <div className="cm-ppimg" style={{ color: "#bbb" }}>
+                              No images yet
+                            </div>
+                          )}
+                          <button
+                            className="cm-ppbtn"
+                            onClick={() => openRecord(rec)}
+                          >
                             View Details →
                           </button>
                         </div>
@@ -743,14 +903,25 @@ export default function CampaignMap() {
 
               {/* Legend */}
               <div className="cm-legend">
-                <div className="cm-lt">Legend</div>
-                <div className="cm-lr"><div className="cm-ld" style={{ background: "#27ae60" }} /><span>Has photos</span></div>
-                <div className="cm-lr"><div className="cm-ld" style={{ background: "#e8420a" }} /><span>No photos</span></div>
+                <div className="cm-lt">Photo Status</div>
+                <div className="cm-lr">
+                  <div className="cm-ld" style={{ background: "#27ae60" }} />
+                  <span>Has photos</span>
+                </div>
+                <div className="cm-lr">
+                  <div className="cm-ld" style={{ background: "#e8420a" }} />
+                  <span>No photos</span>
+                </div>
               </div>
 
               {/* ── Detail Drawer ── */}
-              <div className={`cm-drawer${drawerOpen && selected ? " open" : ""}`}>
-                <div className="cm-dhandle" onClick={() => setDrawerOpen(false)} />
+              <div
+                className={`cm-drawer${drawerOpen && selected ? " open" : ""}`}
+              >
+                <div
+                  className="cm-dhandle"
+                  onClick={() => setDrawerOpen(false)}
+                />
                 {selected && (
                   <div className="cm-dinner">
                     <div className="cm-dhead">
@@ -760,18 +931,23 @@ export default function CampaignMap() {
                       </div>
                       <button
                         className="cm-xbtn"
-                        onClick={() => { setDrawerOpen(false); setSelected(null); }}
-                      >✕</button>
+                        onClick={() => {
+                          setDrawerOpen(false);
+                          setSelected(null);
+                        }}
+                      >
+                        ✕
+                      </button>
                     </div>
 
                     <div className="cm-mgrid">
                       {[
-                        { label: "Status",     val: selected.Status },
-                        { label: "Location",   val: selected.Location },
-                        { label: "Campaign",   val: selected.Campaign_ID },
+                        { label: "Status", val: selected.Status },
+                        { label: "Location", val: selected.Location },
+                        { label: "Campaign", val: selected.Campaign_ID },
                         { label: "Updated By", val: selected.Updated_BY },
                         { label: "Updated At", val: selected.Updated_AT },
-                      ].map(m => (
+                      ].map((m) => (
                         <div className="cm-mcard" key={m.label}>
                           <div className="cm-mlbl">{m.label}</div>
                           <div className="cm-mval">{m.val}</div>
@@ -782,32 +958,52 @@ export default function CampaignMap() {
                     {selected.Campaign_Images?.length > 0 ? (
                       <>
                         <div className="cm-sh" style={{ marginBottom: 8 }}>
-                          Wall Images ({selected.Campaign_Images.length}) · tap to enlarge
+                          Wall Images ({selected.Campaign_Images.length}) · tap
+                          to enlarge
                         </div>
                         <div className="cm-imgstrip">
-                          {selected.Campaign_Images.map(img => (
+                          {selected.Campaign_Images.map((img) => (
                             <div
                               className="cm-imgcard"
                               key={img.ID}
-                              onClick={() => setImgModal(`${BASE_URL}/test/${img.Wall_Image}`)}
+                              onClick={() =>
+                                setImgModal(
+                                  `${BASE_URL}/test/${img.Wall_Image}`,
+                                )
+                              }
                             >
                               <img
                                 className="cm-imgthumb"
                                 src={`${BASE_URL}/test/${img.Wall_Image}`}
                                 alt={`Wall Image ${img.ID}`}
-                                onError={e => {
+                                onError={(e) => {
                                   e.target.style.display = "none";
                                   e.target.nextSibling.style.display = "flex";
                                 }}
                               />
-                              <div className="cm-imgfall" style={{ display: "none" }}>🖼️</div>
+                              <div
+                                className="cm-imgfall"
+                                style={{ display: "none" }}
+                              >
+                                🖼️
+                              </div>
                               <div className="cm-imginfo">
                                 <div className="cm-imgid">Image #{img.ID}</div>
-                                {img.Placed_BY && <div className="cm-imgby">By {img.Placed_BY}</div>}
-                                <div style={{
-                                  fontSize: 10, marginTop: 2,
-                                  color: img.Status === "Approved" ? "#27ae60" : "#9898aa",
-                                }}>
+                                {img.Placed_BY && (
+                                  <div className="cm-imgby">
+                                    By {img.Placed_BY}
+                                  </div>
+                                )}
+                                <div
+                                  style={{
+                                    fontSize: 10,
+                                    marginTop: 2,
+                                    color:
+                                      img.Status === "Approved"
+                                        ? "#27ae60"
+                                        : "#9898aa",
+                                  }}
+                                >
                                   ● {img.Status}
                                 </div>
                               </div>
@@ -816,11 +1012,16 @@ export default function CampaignMap() {
                         </div>
                       </>
                     ) : (
-                      <div style={{
-                        background: "var(--color-bg,#f5f4f0)", borderRadius: 9,
-                        padding: "14px 16px", textAlign: "center",
-                        fontSize: 13, color: "var(--color-text-muted,#9898aa)",
-                      }}>
+                      <div
+                        style={{
+                          background: "var(--color-bg,#f5f4f0)",
+                          borderRadius: 9,
+                          padding: "14px 16px",
+                          textAlign: "center",
+                          fontSize: 13,
+                          color: "var(--color-text-muted,#9898aa)",
+                        }}
+                      >
                         📷 No images uploaded for this location yet
                       </div>
                     )}
@@ -835,12 +1036,14 @@ export default function CampaignMap() {
       {/* ══ Image lightbox ══ */}
       {imgModal && (
         <div className="cm-modal" onClick={() => setImgModal(null)}>
-          <button className="cm-mclose" onClick={() => setImgModal(null)}>✕</button>
+          <button className="cm-mclose" onClick={() => setImgModal(null)}>
+            ✕
+          </button>
           <img
             className="cm-mimg"
             src={imgModal}
             alt="Full size"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}

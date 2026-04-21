@@ -9,7 +9,7 @@ import {
 import { getUserFromStorage } from "../../../utils/userRoleLocalStorage";
 import { BASE_URL } from "../../../../config";
 
-// ─── Status config — all colors from your CSS vars ───────────────────────────
+// ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_META = {
   Approved: {
     badge: {
@@ -68,7 +68,7 @@ function StatusBadge({ status }) {
   const m = STATUS_META[status] || STATUS_META.Pending;
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide"
+      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide whitespace-nowrap"
       style={{
         background: m.badge.bg,
         color: m.badge.color,
@@ -91,7 +91,9 @@ function StatusBtn({ status, onClick, disabled, small }) {
     <button
       disabled={disabled}
       onClick={onClick}
-      className={`font-semibold border rounded-lg transition-all cursor-pointer disabled:opacity-50 ${small ? "text-[10px] py-0.5 px-1.5" : "text-xs py-1 px-3"}`}
+      className={`font-semibold border rounded-lg transition-all cursor-pointer disabled:opacity-50 ${
+        small ? "text-[10px] py-0.5 px-1.5" : "text-xs py-1 px-3"
+      }`}
       style={{
         background: m.btn.bg,
         color: m.btn.color,
@@ -119,7 +121,7 @@ function ImageLightbox({ src, onClose }) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-[200] flex items-center justify-center"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
       style={{ background: "rgba(26,26,46,0.92)", backdropFilter: "blur(8px)" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -131,13 +133,13 @@ function ImageLightbox({ src, onClose }) {
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.88, opacity: 0 }}
         transition={{ type: "spring", damping: 22 }}
-        className="relative max-w-4xl max-h-[88vh] mx-4"
+        className="relative max-w-4xl w-full max-h-[88vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <img
           src={src}
           alt="wall"
-          className="rounded-2xl object-contain max-h-[82vh] max-w-full shadow-2xl"
+          className="rounded-2xl object-contain max-h-[82vh] w-full shadow-2xl"
           style={{ border: "1px solid var(--color-border)" }}
         />
         <button
@@ -238,94 +240,155 @@ function SubmissionCard({
         {/* Status colour strip */}
         <div className="h-1 w-full" style={{ background: meta.strip }} />
 
-        {/* Card body */}
-        <div className="p-4 flex items-start gap-4">
-          {/* Thumbnail */}
-          <div
-            className="w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden cursor-pointer relative group"
-            style={{ border: "1px solid var(--color-border)" }}
-            onClick={() =>
-              preview && setLightboxSrc(BASE_URL + fix(preview.Wall_Image))
-            }
-          >
-            {preview ? (
-              <>
-                <img
-                  src={BASE_URL + fix(preview.Wall_Image)}
-                  alt="thumb"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                  onError={(e) => {
-                    e.target.src =
-                      "https://placehold.co/64x64/eceae4/9898aa?text=IMG";
+        {/* Card body — stacked on mobile, side-by-side on sm+ */}
+        <div className="p-3 sm:p-4">
+          {/* ── Top row: thumbnail + info + actions ── */}
+          <div className="flex items-start gap-3">
+            {/* Thumbnail */}
+            <div
+              className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 rounded-xl overflow-hidden cursor-pointer relative group"
+              style={{ border: "1px solid var(--color-border)" }}
+              onClick={() =>
+                preview && setLightboxSrc(BASE_URL + fix(preview.Wall_Image))
+              }
+            >
+              {preview ? (
+                <>
+                  <img
+                    src={BASE_URL + fix(preview.Wall_Image)}
+                    alt="thumb"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    onError={(e) => {
+                      e.target.src =
+                        "https://placehold.co/64x64/eceae4/9898aa?text=IMG";
+                    }}
+                  />
+                  {images.length > 1 && (
+                    <span
+                      className="absolute bottom-0 right-0 text-[9px] px-1 py-0.5 rounded-tl-md font-mono font-bold text-white"
+                      style={{ background: "rgba(26,26,46,0.75)" }}
+                    >
+                      +{images.length - 1}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-xs"
+                  style={{
+                    background: "var(--color-bg-secondary)",
+                    color: "var(--color-text-muted)",
                   }}
-                />
-                {images.length > 1 && (
-                  <span
-                    className="absolute bottom-0 right-0 text-[9px] px-1 py-0.5 rounded-tl-md font-mono font-bold text-white"
-                    style={{ background: "rgba(26,26,46,0.75)" }}
-                  >
-                    +{images.length - 1}
-                  </span>
+                >
+                  N/A
+                </div>
+              )}
+            </div>
+
+            {/* Info block — grows to fill remaining space */}
+            <div className="flex-1 min-w-0">
+              {/* Badge + ID row */}
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <StatusBadge status={record.Status} />
+                <span
+                  className="text-[10px] font-mono px-2 py-0.5 rounded-md"
+                  style={{
+                    background: "var(--color-bg-secondary)",
+                    color: "var(--color-text-muted)",
+                  }}
+                >
+                  {record.ID}
+                </span>
+              </div>
+
+              {/* User + image count */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className="font-bold text-sm uppercase tracking-wide"
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    color: "var(--color-text-primary)",
+                  }}
+                >
+                  {record.User_ID}
+                </span>
+                <span style={{ color: "var(--color-border-strong)" }}>·</span>
+                <span
+                  className="text-xs"
+                  style={{ color: "var(--color-text-secondary)" }}
+                >
+                  {images.length} image{images.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {/* Location */}
+              <p
+                className="text-xs mt-0.5 truncate"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                📍{" "}
+                {record.Location === "Vendor"
+                  ? "Manual / Vendor"
+                  : record.Location}
+              </p>
+
+              {/* Updated at — hidden on very small screens, shown on sm+ */}
+              <p
+                className="hidden sm:block text-[11px] mt-0.5"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Updated{" "}
+                {new Date(record.Updated_AT).toLocaleString("en-IN", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+                {record.Updated_BY && (
+                  <>
+                    {" "}
+                    by{" "}
+                    <strong style={{ color: "var(--color-text-secondary)" }}>
+                      {record.Updated_BY}
+                    </strong>
+                  </>
                 )}
-              </>
-            ) : (
-              <div
-                className="w-full h-full flex items-center justify-center text-xs"
+              </p>
+            </div>
+
+            {/* Right side: expand button (desktop only — on mobile this moves below) */}
+            <div className="hidden sm:flex flex-col items-end gap-2 flex-shrink-0">
+              {isAdmin && (
+                <div className="flex gap-1.5 flex-wrap justify-end">
+                  {STATUS_OPTIONS.filter((s) => s !== record.Status).map(
+                    (s) => (
+                      <StatusBtn
+                        key={s}
+                        status={s}
+                        disabled={updatingSub}
+                        onClick={() => doUpdateSub(s)}
+                      />
+                    )
+                  )}
+                </div>
+              )}
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer"
                 style={{
                   background: "var(--color-bg-secondary)",
-                  color: "var(--color-text-muted)",
+                  borderColor: "var(--color-border)",
+                  color: "var(--color-text-secondary)",
                 }}
               >
-                N/A
-              </div>
-            )}
+                {expanded ? "▲ Collapse" : "▼ View Images"}
+              </button>
+            </div>
           </div>
 
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <StatusBadge status={record.Status} />
-              <span
-                className="text-[10px] font-mono px-2 py-0.5 rounded-md"
-                style={{
-                  background: "var(--color-bg-secondary)",
-                  color: "var(--color-text-muted)",
-                }}
-              >
-                {record.ID}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className="font-bold text-sm uppercase tracking-wide"
-                style={{
-                  fontFamily: "var(--font-display)",
-                  color: "var(--color-text-primary)",
-                }}
-              >
-                {record.User_ID}
-              </span>
-              <span style={{ color: "var(--color-border-strong)" }}>·</span>
-              <span
-                className="text-xs"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
-                {images.length} image{images.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-
+          {/* ── Mobile-only bottom row: updated-at + admin actions + expand ── */}
+          <div className="flex sm:hidden flex-col gap-2 mt-2.5">
+            {/* Updated at on mobile */}
             <p
-              className="text-xs mt-0.5 truncate"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              📍{" "}
-              {record.Location === "Vendor"
-                ? "Manual / Vendor"
-                : record.Location}
-            </p>
-            <p
-              className="text-[11px] mt-0.5"
+              className="text-[11px]"
               style={{ color: "var(--color-text-muted)" }}
             >
               Updated{" "}
@@ -343,13 +406,10 @@ function SubmissionCard({
                 </>
               )}
             </p>
-          </div>
 
-          {/* Right side: admin action + expand */}
-          <div className="flex flex-col items-end gap-2 flex-shrink-0">
-            {/* ── Admin: whole-submission status buttons ── */}
+            {/* Admin status buttons — full-width row on mobile */}
             {isAdmin && (
-              <div className="flex gap-1.5 flex-wrap justify-end">
+              <div className="flex gap-1.5 flex-wrap">
                 {STATUS_OPTIONS.filter((s) => s !== record.Status).map((s) => (
                   <StatusBtn
                     key={s}
@@ -361,9 +421,10 @@ function SubmissionCard({
               </div>
             )}
 
+            {/* Expand button — full width on mobile */}
             <button
               onClick={() => setExpanded((v) => !v)}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer"
+              className="w-full py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-center"
               style={{
                 background: "var(--color-bg-secondary)",
                 borderColor: "var(--color-border)",
@@ -386,7 +447,7 @@ function SubmissionCard({
               className="overflow-hidden"
             >
               <div
-                className="px-4 pb-4 pt-3"
+                className="px-3 sm:px-4 pb-4 pt-3"
                 style={{ borderTop: "1px solid var(--color-border)" }}
               >
                 <p
@@ -396,7 +457,7 @@ function SubmissionCard({
                   Wall Images ({images.length})
                 </p>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
                   {images.map((img) => (
                     <div key={img.ID} className="group">
                       {/* Image tile */}
@@ -426,7 +487,7 @@ function SubmissionCard({
 
                       {/* Image meta */}
                       <div className="mt-1.5 space-y-1">
-                        <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center justify-between gap-1 flex-wrap">
                           <StatusBadge status={img.Status} />
                           <span
                             className="text-[10px] font-mono"
@@ -454,7 +515,7 @@ function SubmissionCard({
                         </p>
                       </div>
 
-                      {/* ── Admin: per-image status buttons ── */}
+                      {/* Admin per-image status buttons */}
                       {isAdmin && (
                         <div className="flex gap-1 mt-1.5 flex-wrap">
                           {STATUS_OPTIONS.filter((s) => s !== img.Status).map(
@@ -466,7 +527,7 @@ function SubmissionCard({
                                 disabled={updatingImgId === img.ID}
                                 onClick={() => doUpdateImg(img, s)}
                               />
-                            ),
+                            )
                           )}
                         </div>
                       )}
@@ -516,46 +577,46 @@ function BulkBar({ count, onApproveAll, onRejectAll, onClear, loading }) {
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 72, opacity: 0 }}
       transition={{ type: "spring", damping: 22 }}
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 rounded-2xl shadow-2xl w-[calc(100%-2rem)] sm:w-auto max-w-sm sm:max-w-none"
       style={{
         background: "var(--color-secondary)",
         border: "1px solid rgba(255,255,255,0.1)",
       }}
     >
-      <span className="text-sm font-semibold text-white/80">
+      <span className="text-sm font-semibold text-white/80 whitespace-nowrap">
         {count} selected
       </span>
-      <div className="w-px h-5 bg-white/15" />
+      <div className="w-px h-5 bg-white/15 flex-shrink-0" />
       <button
         onClick={onApproveAll}
         disabled={loading}
-        className="px-4 py-1.5 rounded-xl text-sm font-semibold border cursor-pointer transition-all disabled:opacity-50"
+        className="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold border cursor-pointer transition-all disabled:opacity-50 text-center"
         style={{
           background: "rgba(39,174,96,0.2)",
           color: "#27ae60",
           borderColor: "rgba(39,174,96,0.35)",
         }}
       >
-        ✓ Approve All
+        ✓ Approve
       </button>
       <button
         onClick={onRejectAll}
         disabled={loading}
-        className="px-4 py-1.5 rounded-xl text-sm font-semibold border cursor-pointer transition-all disabled:opacity-50"
+        className="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold border cursor-pointer transition-all disabled:opacity-50 text-center"
         style={{
           background: "rgba(201,42,42,0.2)",
           color: "#c92a2a",
           borderColor: "rgba(201,42,42,0.35)",
         }}
       >
-        ✕ Reject All
+        ✕ Reject
       </button>
       <button
         onClick={onClear}
-        className="text-xs border rounded-xl px-3 py-1.5 cursor-pointer text-white/50 hover:text-white/80 transition-all"
+        className="text-xs border rounded-xl px-2.5 py-1.5 cursor-pointer text-white/50 hover:text-white/80 transition-all flex-shrink-0"
         style={{ borderColor: "rgba(255,255,255,0.12)" }}
       >
-        Clear
+        ✕
       </button>
     </motion.div>
   );
@@ -590,7 +651,6 @@ export default function VendorSubmissions({ campaign, onBack }) {
     fetchSubmissions();
   }, [fetchSubmissions]);
 
-  // Optimistic update helpers
   const applySubUpdate = (id, newStatus) =>
     setRecords((prev) =>
       prev.map((r) =>
@@ -603,8 +663,8 @@ export default function VendorSubmissions({ campaign, onBack }) {
                 Status: newStatus,
               })),
             }
-          : r,
-      ),
+          : r
+      )
     );
 
   const applyImgUpdate = (subId, imgId, newStatus) =>
@@ -614,14 +674,13 @@ export default function VendorSubmissions({ campaign, onBack }) {
           ? {
               ...r,
               Campaign_Images: r.Campaign_Images.map((img) =>
-                img.ID === imgId ? { ...img, Status: newStatus } : img,
+                img.ID === imgId ? { ...img, Status: newStatus } : img
               ),
             }
-          : r,
-      ),
+          : r
+      )
     );
 
-  // Stats
   const stats = {
     total: records.length,
     approved: records.filter((r) => r.Status === "Approved").length,
@@ -646,7 +705,6 @@ export default function VendorSubmissions({ campaign, onBack }) {
     return true;
   });
 
-  // Bulk select
   const toggleSelect = (id) =>
     setSelected((prev) => {
       const n = new Set(prev);
@@ -675,7 +733,7 @@ export default function VendorSubmissions({ campaign, onBack }) {
         } catch {
           /* continue */
         }
-      }),
+      })
     );
     toast.success(`${ok} submission${ok !== 1 ? "s" : ""} marked ${newStatus}`);
     clearSelect();
@@ -696,37 +754,48 @@ export default function VendorSubmissions({ campaign, onBack }) {
         color: "var(--color-text-primary)",
       }}
     >
-      <div className="max-w-full px-4 sm:px-6 py-6">
+      <div className="max-w-full px-3 sm:px-6 py-4 sm:py-6">
+
         {/* ── Header ── */}
-        <div className="flex items-center gap-3 mb-6 flex-wrap">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border cursor-pointer transition-all"
-            style={{
-              background: "var(--color-bg-card)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text-secondary)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "var(--color-primary)";
-              e.currentTarget.style.borderColor = "var(--color-primary)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "var(--color-text-secondary)";
-              e.currentTarget.style.borderColor = "var(--color-border)";
-            }}
-          >
-            ← Campaigns
-          </button>
+        <div className="mb-6">
+          {/* Mobile header: back button row + centered title block */}
+          <div className="flex items-center justify-between gap-2 mb-3 sm:hidden">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border cursor-pointer transition-all"
+              style={{
+                background: "var(--color-bg-card)",
+                borderColor: "var(--color-border)",
+                color: "var(--color-text-secondary)",
+              }}
+            >
+              ← Back
+            </button>
 
-          <div
-            className="w-px h-5"
-            style={{ background: "var(--color-border-strong)" }}
-          />
+            <span
+              className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border"
+              style={
+                isAdmin
+                  ? {
+                      background: "rgba(232,66,10,0.1)",
+                      color: "var(--color-primary)",
+                      borderColor: "rgba(232,66,10,0.3)",
+                    }
+                  : {
+                      background: "var(--color-bg-secondary)",
+                      color: "var(--color-text-secondary)",
+                      borderColor: "var(--color-border)",
+                    }
+              }
+            >
+              {isAdmin ? "Admin" : "Client"}
+            </span>
+          </div>
 
-          <div>
+          {/* Mobile: centered title + campaign info */}
+          <div className="text-center sm:hidden mb-3">
             <h2
-              className="text-2xl font-bold uppercase tracking-wide"
+              className="text-xl font-bold uppercase tracking-wide"
               style={{
                 fontFamily: "var(--font-display)",
                 color: "var(--color-primary)",
@@ -752,32 +821,132 @@ export default function VendorSubmissions({ campaign, onBack }) {
             </p>
           </div>
 
-          {/* Role indicator */}
-          <span
-            className="ml-auto px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border"
-            style={
-              isAdmin
-                ? {
-                    background: "rgba(232,66,10,0.1)",
-                    color: "var(--color-primary)",
-                    borderColor: "rgba(232,66,10,0.3)",
-                  }
-                : {
-                    background: "var(--color-bg-secondary)",
-                    color: "var(--color-text-secondary)",
-                    borderColor: "var(--color-border)",
-                  }
-            }
+          {/* Mobile: View Map button full width */}
+          <a
+            href={`#/geo?Campaign_ID=${campaign.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="sm:hidden flex items-center justify-center gap-2 w-full px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
+            style={{
+              background: "var(--color-bg-card)",
+              borderColor: "var(--color-border)",
+              color: "var(--color-text-secondary)",
+            }}
           >
-            {isAdmin ? "Admin" : "Client"} View
-          </span>
+            📍 View Map
+          </a>
+
+          {/* Desktop header: single flex row */}
+          <div className="hidden sm:flex items-center gap-3 flex-wrap">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border cursor-pointer transition-all"
+              style={{
+                background: "var(--color-bg-card)",
+                borderColor: "var(--color-border)",
+                color: "var(--color-text-secondary)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "var(--color-primary)";
+                e.currentTarget.style.borderColor = "var(--color-primary)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "var(--color-text-secondary)";
+                e.currentTarget.style.borderColor = "var(--color-border)";
+              }}
+            >
+              ← Campaigns
+            </button>
+
+            <div
+              className="w-px h-5"
+              style={{ background: "var(--color-border-strong)" }}
+            />
+
+            {/* Title centered in remaining space */}
+            <div className="flex-1 text-center">
+              <h2
+                className="text-2xl font-bold uppercase tracking-wide"
+                style={{
+                  fontFamily: "var(--font-display)",
+                  color: "var(--color-primary)",
+                }}
+              >
+                Vendor Submissions
+              </h2>
+              <p
+                className="text-xs mt-0.5"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Campaign:{" "}
+                <strong style={{ color: "var(--color-text-secondary)" }}>
+                  {campaign.name}
+                </strong>
+                <span
+                  className="mx-1.5"
+                  style={{ color: "var(--color-border-strong)" }}
+                >
+                  ·
+                </span>
+                <span className="font-mono">{campaign.id}</span>
+              </p>
+            </div>
+
+            <a
+              href={`#/geo?Campaign_ID=${campaign.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
+              style={{
+                background: "var(--color-bg-card)",
+                borderColor: "var(--color-border)",
+                color: "var(--color-text-secondary)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "var(--color-primary)";
+                e.currentTarget.style.borderColor = "var(--color-primary)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "var(--color-text-secondary)";
+                e.currentTarget.style.borderColor = "var(--color-border)";
+              }}
+            >
+              📍 View Map
+            </a>
+
+            <div
+              className="w-px h-5"
+              style={{ background: "var(--color-border-strong)" }}
+            />
+
+            <span
+              className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border"
+              style={
+                isAdmin
+                  ? {
+                      background: "rgba(232,66,10,0.1)",
+                      color: "var(--color-primary)",
+                      borderColor: "rgba(232,66,10,0.3)",
+                    }
+                  : {
+                      background: "var(--color-bg-secondary)",
+                      color: "var(--color-text-secondary)",
+                      borderColor: "var(--color-border)",
+                    }
+              }
+            >
+              {isAdmin ? "Admin" : "Client"} View
+            </span>
+          </div>
         </div>
 
         {/* ── Stats ── */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`grid grid-cols-2 sm:${isAdmin ? "grid-cols-5" : "grid-cols-2"} gap-3 mb-6`}
+          className={`grid grid-cols-2 ${
+            isAdmin ? "sm:grid-cols-5" : "sm:grid-cols-2"
+          } gap-2 sm:gap-3 mb-4 sm:mb-6`}
         >
           <StatCard
             label="Total"
@@ -818,7 +987,8 @@ export default function VendorSubmissions({ campaign, onBack }) {
         </motion.div>
 
         {/* ── Filters ── */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4">
+          {/* Search — full width on mobile */}
           <div className="relative flex-1">
             <span
               className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
@@ -842,37 +1012,39 @@ export default function VendorSubmissions({ campaign, onBack }) {
             />
           </div>
 
+          {/* Admin filters — 2-col grid on mobile */}
           {isAdmin && (
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2.5 rounded-xl text-sm cursor-pointer outline-none"
-              style={inputStyle}
-            >
-              <option value="All">All Status</option>
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-3 sm:px-4 py-2.5 rounded-xl text-sm cursor-pointer outline-none"
+                style={inputStyle}
+              >
+                <option value="All">All Status</option>
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filterUser}
+                onChange={(e) => setFilterUser(e.target.value)}
+                className="px-3 sm:px-4 py-2.5 rounded-xl text-sm cursor-pointer outline-none"
+                style={inputStyle}
+              >
+                <option value="All">All Users</option>
+                {uniqueUsers.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
 
-          {isAdmin && (
-            <select
-              value={filterUser}
-              onChange={(e) => setFilterUser(e.target.value)}
-              className="px-4 py-2.5 rounded-xl text-sm cursor-pointer outline-none"
-              style={inputStyle}
-            >
-              <option value="All">All Users</option>
-              {uniqueUsers.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
-          )}
           <button
             onClick={fetchSubmissions}
             disabled={loading}
@@ -890,7 +1062,7 @@ export default function VendorSubmissions({ campaign, onBack }) {
         {/* ── Admin bulk-select bar ── */}
         {isAdmin && filtered.length > 0 && (
           <div
-            className="flex items-center gap-3 mb-4 px-4 py-2.5 rounded-xl flex-wrap"
+            className="flex items-center gap-2 sm:gap-3 mb-4 px-3 sm:px-4 py-2.5 rounded-xl flex-wrap"
             style={{
               background: "var(--color-bg-card)",
               border: "1px solid var(--color-border)",
@@ -914,13 +1086,13 @@ export default function VendorSubmissions({ campaign, onBack }) {
                 ? `All ${filtered.length} selected`
                 : someSelected
                   ? `${selected.size} of ${filtered.length} selected`
-                  : `Select all ${filtered.length} submissions`}
+                  : `Select all ${filtered.length}`}
             </span>
 
             {selected.size > 0 && (
               <>
                 <div
-                  className="w-px h-4"
+                  className="w-px h-4 hidden sm:block"
                   style={{ background: "var(--color-border)" }}
                 />
                 <button
@@ -933,7 +1105,7 @@ export default function VendorSubmissions({ campaign, onBack }) {
                     borderColor: "rgba(39,174,96,0.3)",
                   }}
                 >
-                  ✓ Approve Selected
+                  ✓ Approve
                 </button>
                 <button
                   onClick={() => bulkUpdate("Rejected")}
@@ -945,14 +1117,14 @@ export default function VendorSubmissions({ campaign, onBack }) {
                     borderColor: "rgba(201,42,42,0.3)",
                   }}
                 >
-                  ✕ Reject Selected
+                  ✕ Reject
                 </button>
                 <button
                   onClick={clearSelect}
                   className="ml-auto text-xs cursor-pointer underline underline-offset-2"
                   style={{ color: "var(--color-text-muted)" }}
                 >
-                  Clear selection
+                  Clear
                 </button>
               </>
             )}
@@ -998,7 +1170,7 @@ export default function VendorSubmissions({ campaign, onBack }) {
         ) : (
           <div className="space-y-3">
             {filtered.map((record, i) => (
-              <div key={record.ID} className="flex gap-3 items-start">
+              <div key={record.ID} className="flex gap-2 sm:gap-3 items-start">
                 {isAdmin && (
                   <div className="pt-[22px] flex-shrink-0">
                     <input

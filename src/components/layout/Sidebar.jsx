@@ -14,7 +14,7 @@ import {
 
 const NAV_CONFIG = {
   admin: [
-    { label: "Dashboard", icon: LayoutDashboard, to: "/app/dashboard" },
+    // { label: "Dashboard", icon: LayoutDashboard, to: "/app/dashboard" },
     { label: "User Auth", icon: Users, to: "/app/user-auth" },
     { label: "Campaigns", icon: Megaphone, to: "/app/campaigns" },
   ],

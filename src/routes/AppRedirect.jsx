@@ -6,7 +6,8 @@ export default function AppRedirect() {
 
   if (!user) return <Navigate to="/login" />;
 
-  if (user.role === "admin") return <Navigate to="/app/dashboard" />;
+  // if (user.role === "admin") return <Navigate to="/app/dashboard" />;
+  if (user.role === "admin") return <Navigate to="/app/campaigns" />;
   if (user.role === "client") return <Navigate to="/app/campaigns" />;
   if (user.role === "vendor") return <Navigate to="/app/vendor" />;
 
