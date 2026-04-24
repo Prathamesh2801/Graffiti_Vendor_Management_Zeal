@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { BASE_URL } from "../../../../config";
 import { getImages } from "../../../utils/indexedDB";
-import { ChevronDown, ChevronUp, ImagePlus, ZoomIn } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, ImagePlus, Pencil, Send, ZoomIn } from "lucide-react";
 
 /* ── Helpers ── */
 function formatDate(dateStr) {
