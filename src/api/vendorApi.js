@@ -26,8 +26,19 @@ export const uploadVendorImages = async ({ code, geoLocation, images }) => {
   return res.data;
 };
 
+export const addMoreImages = async ({ uniqueId, images }) => {
+  const formData = new FormData();
 
-// export const validateCampaignCode = async (code) => {
-//   const res = await api.get(`/validateCampaign.php?code=${code}`);
-//   return res.data;
-// };
+  images.forEach((file) => {
+    formData.append("Wall_Image", file);
+  });
+
+  const res = await api.put(
+    `/Vendor/dashboard.php?Unique_ID=${uniqueId}`,
+    formData,
+  );
+
+  console.log("Add More Images Response:", res.data);
+
+  return res.data;
+};

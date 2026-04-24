@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { BASE_URL } from "../../../../config";
 import { getImages } from "../../../utils/indexedDB";
+import { ChevronDown, ChevronUp, ImagePlus, ZoomIn } from "lucide-react";
 
 /* ── Helpers ── */
 function formatDate(dateStr) {
@@ -149,7 +150,7 @@ function Lightbox({ src, onClose }) {
 }
 
 /* ── Record card ── */
-function RecordCard({ record, index, onEdit, onSubmit }) {
+function RecordCard({ record, index, onEdit, onSubmit, onAddImages }) {
   const [expanded, setExpanded] = useState(false);
   const [lightbox, setLightbox] = useState(null);
   const [offlineImages, setOfflineImages] = useState([]);
@@ -178,7 +179,7 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
           ease: [0.22, 1, 0.36, 1],
           delay: index * 0.06,
         }}
-        className="rounded-2xl border overflow-hidden transition-shadow hover:shadow-md"
+        className="rounded-2xl border overflow-hidden transition-shadow hover:shadow-lg"
         style={{
           background: "var(--color-bg-card)",
           borderColor: "var(--color-border)",
@@ -197,12 +198,12 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
           }}
         />
 
-        <div className="p-5 ">
-          {/* Top row */}
-          <div className="flex  items-start justify-between gap-3 mb-4">
-            <div className="min-w-0 ">
+        <div className="p-5">
+          {/* ── Top row: code + status ── */}
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="min-w-0">
               <p
-                className="text-xs font-bold uppercase tracking-widest mb-1"
+                className="text-[10px] font-bold uppercase tracking-widest mb-1"
                 style={{
                   fontFamily: "var(--font-display)",
                   color: "var(--color-primary)",
@@ -211,7 +212,7 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
                 Graffiti Code
               </p>
               <p
-                className="text-lg font-black leading-none truncate"
+                className="text-xl font-black leading-none truncate"
                 style={{
                   fontFamily: "var(--font-display)",
                   color: "var(--color-secondary)",
@@ -220,92 +221,109 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
                 {record.code || record.ID}
               </p>
             </div>
-
             <StatusBadge status={overallStatus} />
           </div>
 
-          {/* Meta grid */}
+          {/* ── Offline edit notice ── */}
+          {record.isOffline && (
+            <div
+              className="flex items-start gap-2.5 mb-4 p-3 rounded-xl text-xs"
+              style={{
+                background: "rgba(247,201,72,0.08)",
+                border: "1px solid rgba(247,201,72,0.35)",
+                color: "var(--color-text-secondary)",
+              }}
+            >
+              <span className="text-base leading-none mt-px">✏️</span>
+              <span>
+                You can edit{" "}
+                <b style={{ color: "var(--color-text-primary)" }}>
+                  Graffiti Code
+                </b>{" "}
+                and <b style={{ color: "var(--color-text-primary)" }}>Images</b>{" "}
+                before submitting.
+              </span>
+            </div>
+          )}
+
+          {/* ── Meta grid ── */}
           <div
-            className="grid grid-cols-2 gap-x-4 gap-y-2.5 mb-4 text-xs"
-            style={{ color: "var(--color-text-secondary)" }}
+            className="grid grid-cols-2 gap-x-4 gap-y-3 mb-4 pb-4 border-b"
+            style={{ borderColor: "var(--color-border)" }}
           >
+            {/* Submitted */}
             <div>
               <p
-                className="font-bold uppercase tracking-wider mb-0.5"
+                className="text-[10px] font-bold uppercase tracking-widest mb-0.5"
                 style={{
                   fontFamily: "var(--font-display)",
                   color: "var(--color-text-muted)",
-                  fontSize: "10px",
                 }}
               >
                 Submitted
               </p>
-              <p style={{ fontFamily: "var(--font-body)" }}>
+              <p
+                className="text-xs"
+                style={{
+                  fontFamily: "var(--font-body)",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
                 {formatDate(record.Created_AT)}
               </p>
             </div>
+
+            {/* Last Updated */}
             <div>
               <p
-                className="font-bold uppercase tracking-wider mb-0.5"
+                className="text-[10px] font-bold uppercase tracking-widest mb-0.5"
                 style={{
                   fontFamily: "var(--font-display)",
                   color: "var(--color-text-muted)",
-                  fontSize: "10px",
                 }}
               >
                 Last Updated
               </p>
-              <p style={{ fontFamily: "var(--font-body)" }}>
+              <p
+                className="text-xs"
+                style={{
+                  fontFamily: "var(--font-body)",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
                 {formatDate(record.Updated_AT)}
               </p>
             </div>
+
+            {/* Images count */}
             <div>
               <p
-                className="font-bold uppercase tracking-wider mb-0.5"
+                className="text-[10px] font-bold uppercase tracking-widest mb-0.5"
                 style={{
                   fontFamily: "var(--font-display)",
                   color: "var(--color-text-muted)",
-                  fontSize: "10px",
                 }}
               >
                 Images
               </p>
-              <p style={{ fontFamily: "var(--font-body)" }}>
+              <p
+                className="text-xs"
+                style={{
+                  fontFamily: "var(--font-body)",
+                  color: "var(--color-text-secondary)",
+                }}
+              >
                 {images.length} wall image{images.length !== 1 ? "s" : ""}
               </p>
             </div>
-            {record.isOffline && (
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => onEdit(record)}
-                  className="text-xs bg-yellow-500 text-white px-2 py-1 rounded"
-                >
-                  Edit
-                </button>
 
-                <button
-                  onClick={() => {
-                    console.log("🟢 Submit button clicked in UI:", record);
-                    onSubmit(record);
-                  }}
-                  className="text-xs bg-green-600 text-white px-2 py-1 rounded"
-                >
-                  Submit
-                </button>
-                  {record.error && (
-              <p className="text-xs text-red-500 mt-2">❌ {record.error}</p>
-            )}
-              </div>
-            )}
-
-          
+            {/* Location */}
             <div>
               <p
-                className="font-bold uppercase tracking-wider mb-0.5"
+                className="text-[10px] font-bold uppercase tracking-widest mb-0.5"
                 style={{
                   fontFamily: "var(--font-display)",
                   color: "var(--color-text-muted)",
-                  fontSize: "10px",
                 }}
               >
                 Location
@@ -314,9 +332,9 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
             </div>
           </div>
 
-          {/* Image thumbnails (first 3 + expand) */}
+          {/* ── Image thumbnails ── */}
           {images.length > 0 && (
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 flex-wrap mb-3">
               {images.slice(0, expanded ? images.length : 3).map((img, i) => (
                 <motion.button
                   key={i}
@@ -329,9 +347,9 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
                   onClick={() => setLightbox(resolveImageUrl(img.Wall_Image))}
                   className="relative rounded-xl overflow-hidden flex-shrink-0 group"
                   style={{
-                    width: 72,
-                    height: 72,
-                    background: "var(--color-bg-secondary)",
+                    width: 68,
+                    height: 68,
+                    background: "var(--color-bg)",
                   }}
                 >
                   <img
@@ -344,12 +362,12 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
                   />
                   <div
                     className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ background: "rgba(26,26,46,0.45)" }}
+                    style={{ background: "rgba(0,0,0,0.45)" }}
                   >
-                    <span className="text-white text-lg">🔍</span>
+                    <ZoomIn size={16} className="text-white drop-shadow" />
                   </div>
-                  {/* Per-image status */}
-                  <div className="absolute bottom-1 left-1">
+                  {/* Per-image status dot */}
+                  <div className="absolute top-1 right-1">
                     <StatusBadge status={img.Status} />
                   </div>
                 </motion.button>
@@ -361,28 +379,35 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
                   whileTap={{ scale: 0.95 }}
                   type="button"
                   onClick={() => setExpanded(true)}
-                  className="rounded-xl flex-shrink-0 flex items-center justify-center text-sm font-black"
+                  className="rounded-xl flex-shrink-0 flex flex-col items-center justify-center gap-0.5"
                   style={{
-                    width: 72,
-                    height: 72,
-                    background: "var(--color-primary-50)",
+                    width: 68,
+                    height: 68,
+                    background:
+                      "color-mix(in srgb, var(--color-primary) 10%, transparent)",
                     color: "var(--color-primary)",
-                    border: "1.5px dashed var(--color-primary-light)",
+                    border:
+                      "1.5px dashed color-mix(in srgb, var(--color-primary) 40%, transparent)",
                     fontFamily: "var(--font-display)",
                   }}
                 >
-                  +{images.length - 3}
+                  <span className="text-sm font-black leading-none">
+                    +{images.length - 3}
+                  </span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider opacity-70">
+                    more
+                  </span>
                 </motion.button>
               )}
             </div>
           )}
 
-          {/* Expand/collapse per-image details */}
+          {/* ── Expand / collapse toggle ── */}
           {images.length > 0 && (
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-opacity hover:opacity-70"
+              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest mb-3 transition-opacity hover:opacity-70"
               style={{
                 fontFamily: "var(--font-display)",
                 color: "var(--color-primary)",
@@ -392,11 +417,34 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
                 padding: 0,
               }}
             >
-              {expanded ? "▲ Collapse" : "▼ Image Details"}
+              {expanded ? (
+                <>
+                  <ChevronUp size={12} /> Collapse Details
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={12} /> Image Details
+                </>
+              )}
             </button>
           )}
 
-          {/* Expanded per-image details */}
+          {/* ── Error banner ── */}
+          {record.error && (
+            <div
+              className="flex items-start gap-2 mt-1 mb-3 p-3 rounded-xl text-xs"
+              style={{
+                background: "rgba(201,42,42,0.08)",
+                border: "1px solid rgba(201,42,42,0.3)",
+                color: "var(--color-error)",
+              }}
+            >
+              <AlertCircle size={14} className="flex-shrink-0 mt-px" />
+              <span>{record.error}</span>
+            </div>
+          )}
+
+          {/* ── Expanded per-image detail rows ── */}
           <AnimatePresence>
             {expanded && (
               <motion.div
@@ -405,7 +453,7 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <div className="mt-3 flex flex-col gap-2">
+                <div className="flex flex-col gap-2 mb-3">
                   {images.map((img, i) => (
                     <div
                       key={i}
@@ -442,6 +490,54 @@ function RecordCard({ record, index, onEdit, onSubmit }) {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* ── Action buttons ── */}
+          <div className="flex flex-col gap-2 pt-1">
+            {/* Add Images — only for online records */}
+            {!record.isOffline && (
+              <motion.button
+                whileHover={{ opacity: 0.9 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onAddImages(record)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white transition-all"
+                style={{ background: "var(--color-primary)" }}
+              >
+                <ImagePlus size={13} />
+                Add More Images
+              </motion.button>
+            )}
+
+            {/* Edit + Submit — only for offline records */}
+            {record.isOffline && (
+              <div className="flex gap-2">
+                <motion.button
+                  whileHover={{ opacity: 0.9 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => onEdit(record)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+                  style={{
+                    background: "rgba(245,158,11,0.12)",
+                    color: "#f59e0b",
+                    border: "1px solid rgba(245,158,11,0.3)",
+                  }}
+                >
+                  <Pencil size={12} />
+                  Edit
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ opacity: 0.9 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => onSubmit(record)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white transition-all"
+                  style={{ background: "var(--color-success, #10b981)" }}
+                >
+                  <Send size={12} />
+                  Submit
+                </motion.button>
+              </div>
+            )}
+          </div>
         </div>
       </motion.div>
 
@@ -460,6 +556,7 @@ export default function SubmissionList({
   onNewSubmission,
   onEdit,
   onSubmit,
+  onAddImages,
   syncedIds,
   records,
   loading,
@@ -676,6 +773,7 @@ export default function SubmissionList({
               record={record}
               onEdit={onEdit}
               onSubmit={onSubmit}
+              onAddImages={onAddImages}
             />
           ))}
         </div>

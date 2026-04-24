@@ -6,6 +6,7 @@ import SubmissionList from "../../components/features/vendor/SubmissionList";
 import { uploadVendorImages, getVendorRecords } from "../../api/vendorApi";
 import { getImages, deleteImages } from "../../utils/indexedDB";
 import { getPrompt } from "../../utils/pwaPrompt";
+import AddImagesModal from "../../components/features/vendor/AddImagesModal";
 const STEPS = ["campaign", "upload"];
 
 const isIos = () =>
@@ -55,7 +56,7 @@ export default function VendorDashboard() {
   const [syncedIds, setSyncedIds] = useState([]);
   const { setVendorMeta } = useOutletContext();
   const [showIOSInstall, setShowIOSInstall] = useState(false);
-
+  const [addImageRecord, setAddImageRecord] = useState(null);
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -865,8 +866,19 @@ export default function VendorDashboard() {
                   goToStep("campaign");
                 }}
                 onSubmit={markAsReady}
+                onAddImages={(record) => setAddImageRecord(record)}
               />
             </motion.div>
+          )}
+
+          {addImageRecord && (
+            <AddImagesModal
+              record={addImageRecord}
+              onClose={() => setAddImageRecord(null)}
+              onUploaded={() => {
+                fetchRecords(); // refresh API data
+              }}
+            />
           )}
         </AnimatePresence>
       </main>

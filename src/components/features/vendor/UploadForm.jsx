@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ImagePreviewGrid from "./ImagePreviewGrid";
 import { getImages, saveImages } from "../../../utils/indexedDB";
 import { registerBackgroundSync } from "../../../utils/registerSync";
+import { compressImage } from "../../../utils/compressImage";
 
 /* ─────────────────────────────────────────────────
    Geolocation helper
@@ -192,25 +193,28 @@ export default function UploadForm({
     }
   }, [editingRecord]);
 
-  /* ── File handling ── */
-  const addFiles = (files) => {
-    // 🔒 BLOCK adding images in edit mode
-    if (isEditMode) return;
 
+  const addFiles = async (files) => {
     const accepted = Array.from(files).filter((f) =>
       f.type.startsWith("image/"),
     );
-    const newItems = accepted.map((file) => ({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+
+    const compressed = await Promise.all(
+      accepted.map((file) => compressImage(file)),
+    );
+
+    const newItems = compressed.map((file) => ({
+      id: `${Date.now()}-${Math.random()}`,
       file,
       preview: URL.createObjectURL(file),
     }));
+
     setImages((prev) => [...prev, ...newItems]);
   };
 
   const removeImage = (id) => {
     // 🔒 BLOCK removing images in edit mode
-    if (isEditMode) return;
+    // if (isEditMode) return;
 
     setImages((prev) => {
       const item = prev.find((i) => i.id === id);
@@ -251,6 +255,13 @@ export default function UploadForm({
       // 🔴 OFFLINE OR ONLINE → SAME FLOW (QUEUE ONLY)
 
       if (editingRecord) {
+        // 🔥 1. Update images in IndexedDB
+        await saveImages(
+          editingRecord.imageIds,
+          images.map((i) => i.file),
+        );
+
+        // 🔥 2. Update queue
         const queue = JSON.parse(
           localStorage.getItem("vendor_offline_queue") || "[]",
         );
@@ -261,6 +272,7 @@ export default function UploadForm({
                 ...item,
                 code: campaignCode,
                 geoLocation: geoCoords,
+                imageCount: images.length, // 🔥 update count
                 status: "ready",
                 error: null,
               }
@@ -376,18 +388,20 @@ export default function UploadForm({
             }}
             animate={dragOver ? { scale: 1.01 } : { scale: 1 }}
             onDragOver={(e) => {
-              if (isEditMode) return;
+              // if (isEditMode) return;
               e.preventDefault();
               setDragOver(true);
             }}
             onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              if (isEditMode) return;
-              onDrop(e);
-            }}
-            onClick={() => {
-              if (!isEditMode) fileInputRef.current?.click();
-            }}
+            // onDrop={(e) => {
+            //   if (isEditMode) return;
+            //   onDrop(e);
+            // }}
+            onDrop={onDrop}
+            // onClick={() => {
+            //   if (!isEditMode) fileInputRef.current?.click();
+            // }}
+            onClick={() => fileInputRef.current?.click()}
             role="button"
             tabIndex={0}
             onKeyDown={(e) =>
@@ -441,7 +455,7 @@ export default function UploadForm({
                 }}
               >
                 {isEditMode
-                  ? "Images are locked in edit mode"
+                  ? "You can update images (add/remove)"
                   : "Drop images here or click to browse"}
               </p>
               <p
@@ -457,7 +471,7 @@ export default function UploadForm({
               accept="image/*"
               multiple
               hidden
-              disabled={isEditMode} // 🔒 important
+              // disabled={isEditMode} // 🔒 important
               onChange={(e) => addFiles(e.target.files)}
             />
           </motion.div>
@@ -472,7 +486,8 @@ export default function UploadForm({
               >
                 <ImagePreviewGrid
                   images={images}
-                  onRemove={isEditMode ? null : removeImage}
+                  // onRemove={isEditMode ? null : removeImage}
+                  onRemove={removeImage}
                 />
               </motion.div>
             )}
