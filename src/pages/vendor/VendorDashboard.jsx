@@ -60,6 +60,7 @@ export default function VendorDashboard() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isUnauthorized, setIsUnauthorized] = useState(false); // Track 401 state
 
   const goToStep = (nextStep) => {
     if (step === "records" && nextStep === "upload") return;
@@ -288,6 +289,9 @@ export default function VendorDashboard() {
   }, []);
 
   const fetchRecords = async () => {
+    // Don't retry after 401 error
+    if (isUnauthorized) return;
+
     setLoading(true);
     setError("");
 
@@ -303,12 +307,18 @@ export default function VendorDashboard() {
         );
       }
     } catch (err) {
-      const cached = localStorage.getItem("vendor_records_cache");
-
-      if (cached) {
-        setRecords(JSON.parse(cached));
+      // If 401 Unauthorized, mark as such to prevent retries
+      if (err.response?.status === 401) {
+        setIsUnauthorized(true);
+        // Don't show error toast here - API interceptor already handles it
       } else {
-        setError("No offline data available.");
+        const cached = localStorage.getItem("vendor_records_cache");
+
+        if (cached) {
+          setRecords(JSON.parse(cached));
+        } else {
+          setError("No offline data available.");
+        }
       }
     } finally {
       setLoading(false);

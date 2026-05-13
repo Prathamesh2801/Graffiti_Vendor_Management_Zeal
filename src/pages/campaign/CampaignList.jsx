@@ -36,6 +36,7 @@ export default function CampaignList() {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
+  const [isUnauthorized, setIsUnauthorized] = useState(false); // Track 401 state
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -66,11 +67,17 @@ export default function CampaignList() {
   const isAdmin = user?.role?.toLowerCase() === "admin";
 
   useEffect(() => {
-    fetchCampaigns();
-    fetchUsers();
+    // Only fetch if user is still valid (not logged out on another device)
+    if (user?.token) {
+      fetchCampaigns();
+      fetchUsers();
+    }
   }, []);
 
   const fetchCampaigns = async () => {
+    // Don't retry after 401 error
+    if (isUnauthorized) return;
+
     try {
       setLoading(true);
       const res = await getCampaigns();
@@ -88,14 +95,23 @@ export default function CampaignList() {
         }));
         setAllCampaigns(formatted);
       }
-    } catch {
-      toast.error("Failed to load campaigns");
+    } catch (error) {
+      // If 401 Unauthorized, mark as such to prevent retries
+      if (error.response?.status === 401) {
+        setIsUnauthorized(true);
+        // Don't show error toast here - API interceptor already handles it
+      } else {
+        toast.error("Failed to load campaigns");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const fetchUsers = async () => {
+    // Don't retry after 401 error
+    if (isUnauthorized) return;
+
     try {
       const res = await getUsers();
       if (res.Status) {
@@ -107,8 +123,12 @@ export default function CampaignList() {
           })),
         );
       }
-    } catch {
-      /* silent */
+    } catch (error) {
+      // If 401 Unauthorized, mark as such to prevent retries
+      if (error.response?.status === 401) {
+        setIsUnauthorized(true);
+      }
+      /* otherwise silent */
     }
   };
 

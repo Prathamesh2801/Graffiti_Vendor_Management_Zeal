@@ -2,7 +2,10 @@ import { useAuth } from "../context/AuthContext";
 import { Navigate } from "react-router-dom";
 
 export default function AppRedirect() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+
+  // Show nothing while loading to prevent flickering
+  if (isLoading) return null;
 
   if (!user) return <Navigate to="/login" />;
 

@@ -24,7 +24,7 @@ export const compressImage = (file) => {
           resolve(new File([blob], file.name, { type: "image/jpeg" }));
         },
         "image/jpeg",
-        0.7, // 🔥 compression level
+        0.7,
       );
     };
 

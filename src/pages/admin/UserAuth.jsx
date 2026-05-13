@@ -37,6 +37,7 @@ export default function UserAuth() {
   const [showPass, setShowPass] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [changePassword, setChangePassword] = useState(false);
+  const [isUnauthorized, setIsUnauthorized] = useState(false); // Track 401 state
 
   const [sortField, setSortField] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
@@ -56,6 +57,9 @@ export default function UserAuth() {
   }, [search, roleFilter, statusFilter, pageSize]);
 
   const fetchUsers = async () => {
+    // Don't retry after 401 error
+    if (isUnauthorized) return;
+
     try {
       const res = await getUsers();
       if (res.Status) {
@@ -72,7 +76,13 @@ export default function UserAuth() {
         setUsers(formatted);
       }
     } catch (err) {
-      toast.error("Failed to load users");
+      // If 401 Unauthorized, mark as such to prevent retries
+      if (err.response?.status === 401) {
+        setIsUnauthorized(true);
+        // Don't show error toast here - API interceptor already handles it
+      } else {
+        toast.error("Failed to load users");
+      }
     }
   };
 
