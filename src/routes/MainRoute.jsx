@@ -11,6 +11,7 @@ import CampaignMap from "../pages/campaign/CampaignMap";
 import UserAuth from "../pages/admin/UserAuth";
 import CampaignList from "../pages/campaign/CampaignList";
 import VendorDashboard from "../pages/vendor/VendorDashboard";
+import VendorRegister from "../pages/auth/VendorRegister";
 
 export default function MainRoute() {
   const router = createHashRouter([
@@ -27,7 +28,24 @@ export default function MainRoute() {
       path: "/login",
       element: (
         <PublicRoute>
-          <Login />
+          <Login type="vendor" />
+        </PublicRoute>
+      ),
+    },
+
+    {
+      path: "/admin-login",
+      element: (
+        <PublicRoute>
+          <Login type="admin" />
+        </PublicRoute>
+      ),
+    },
+    {
+      path: "/register",
+      element: (
+        <PublicRoute>
+          <VendorRegister />
         </PublicRoute>
       ),
     },

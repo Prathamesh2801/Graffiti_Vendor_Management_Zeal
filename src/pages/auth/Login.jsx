@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { motion } from "framer-motion";
 
-export default function Login() {
+export default function Login({ type = "vendor" }) {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ username: "", password: "" });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const isVendor = type === "vendor";
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -75,7 +76,9 @@ export default function Login() {
             Graffiti Campaign
           </h1>
           <p className="text-text-secondary text-sm mt-1 font-body">
-            Sign in to continue
+            {isVendor
+              ? "Vendor sign in to continue"
+              : "Administrator access portal"}
           </p>
         </div>
 
@@ -88,14 +91,16 @@ export default function Login() {
             {/* Username */}
             <div>
               <label className="block text-xs font-display font-semibold uppercase tracking-widest text-text-secondary mb-2">
-                Username
+                {isVendor ? "Phone Number" : "Username"}
               </label>
               <input
                 type="text"
                 name="username"
                 value={form.username}
                 onChange={handleChange}
-                placeholder="Enter username"
+                placeholder={
+                  isVendor ? "Enter registered mobile number" : "Enter username"
+                }
                 autoComplete="username"
                 className="w-full px-4 py-3 rounded-xl border text-sm font-body text-text-primary bg-bg-page
                   outline-none transition-all duration-200
@@ -116,7 +121,7 @@ export default function Login() {
             {/* Password */}
             <div>
               <label className="block text-xs font-display font-semibold uppercase tracking-widest text-text-secondary mb-2">
-                Password
+                {isVendor ? "OTP Password" : "Password"}
               </label>
               <div className="relative">
                 <input
@@ -124,7 +129,9 @@ export default function Login() {
                   name="password"
                   value={form.password}
                   onChange={handleChange}
-                  placeholder="Enter password"
+                  placeholder={
+                    isVendor ? "Enter OTP password" : "Enter password"
+                  }
                   autoComplete="current-password"
                   className="w-full px-4 py-3 pr-12 rounded-xl border text-sm font-body text-text-primary bg-bg-page
                     outline-none transition-all duration-200
@@ -180,6 +187,19 @@ export default function Login() {
                 </span>
               )}
             </button>
+
+            {/* Footer */}
+            {isVendor && (
+              <div className="mt-6 text-center text-sm text-slate-600">
+                New Vendor ? Create Account{" "}
+                <Link
+                  to="/register"
+                  className="text-[#F47C20] font-semibold hover:underline"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
           </form>
         </div>
       </motion.div>
