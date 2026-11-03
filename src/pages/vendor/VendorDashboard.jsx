@@ -3,234 +3,93 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useOutletContext } from "react-router-dom";
 import UploadForm from "../../components/features/vendor/UploadForm";
 import SubmissionList from "../../components/features/vendor/SubmissionList";
-import { uploadVendorImages, getVendorRecords } from "../../api/vendorApi";
-import { getImages, deleteImages } from "../../utils/indexedDB";
-import { getPrompt } from "../../utils/pwaPrompt";
 import AddImagesModal from "../../components/features/vendor/AddImagesModal";
-const STEPS = ["campaign", "upload"];
+import InstallPrompt from "../../components/features/vendor/InstallPrompt";
+import { getVendorRecords } from "../../api/vendorApi";
+import { patchQueueItem } from "../../utils/offlineQueue";
+import { useOfflineSync } from "../../hooks/useOfflineSync";
 
-const isIos = () =>
-  /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase()) ||
-  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const RECORDS_CACHE_KEY = "vendor_records_cache";
+const STEP_ORDER = ["campaign", "upload", "records"];
+const stepLabels = ["Graffiti", "Upload"];
 
-const isInStandaloneMode = () =>
-  window.matchMedia("(display-mode: standalone)").matches ||
-  window.navigator.standalone === true;
-
-const IOS_PROMPT_KEY = "ios_install_seen";
-const IOS_LAST_SHOWN = "ios_install_last";
-
-const shouldShowIOSInstall = () => {
-  if (!isIos()) return false;
-  if (isInStandaloneMode()) return false;
-
-  const hasSeen = localStorage.getItem(IOS_PROMPT_KEY);
-  const lastShown = localStorage.getItem(IOS_LAST_SHOWN);
-
-  // ❌ user dismissed permanently
-  if (hasSeen === "true") return false;
-
-  // ⏱️ show again after 3 days if not dismissed
-  if (lastShown) {
-    const diff = Date.now() - Number(lastShown);
-    const threeDays = 3 * 24 * 60 * 60 * 1000;
-
-    if (diff < threeDays) return false;
-  }
-
-  return true;
+const pageVariants = {
+  initial: (direction) => ({
+    x: direction > 0 ? 80 : -80,
+    opacity: 0,
+    filter: "blur(6px)",
+  }),
+  animate: {
+    x: 0,
+    opacity: 1,
+    filter: "blur(0px)",
+    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+  },
+  exit: (direction) => ({
+    x: direction > 0 ? -80 : 80,
+    opacity: 0,
+    filter: "blur(4px)",
+    transition: { duration: 0.25 },
+  }),
 };
 
+// Vendor flow: records list → enter graffiti code → upload images.
+// Offline queue + sync live in useOfflineSync; this component only orchestrates steps.
 export default function VendorDashboard() {
   const [step, setStep] = useState("records");
   const [direction, setDirection] = useState(1);
   const [campaignCode, setCampaignCode] = useState("");
   const [campaignError, setCampaignError] = useState("");
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [pendingSync, setPendingSync] = useState(false);
-  const [syncingNow, setSyncingNow] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showInstall, setShowInstall] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
-  const [syncedIds, setSyncedIds] = useState([]);
-  const { setVendorMeta } = useOutletContext();
-  const [showIOSInstall, setShowIOSInstall] = useState(false);
   const [addImageRecord, setAddImageRecord] = useState(null);
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [isUnauthorized, setIsUnauthorized] = useState(false); // Track 401 state
+  const { setVendorMeta } = useOutletContext();
+  const { queue, isOnline, syncing, sync, refresh } = useOfflineSync();
 
   const goToStep = (nextStep) => {
     if (step === "records" && nextStep === "upload") return;
-
-    const order = ["campaign", "upload", "records"];
-    const currentIndex = order.indexOf(step);
-    const nextIndex = order.indexOf(nextStep);
-
-    setDirection(nextIndex > currentIndex ? 1 : -1);
+    setDirection(STEP_ORDER.indexOf(nextStep) > STEP_ORDER.indexOf(step) ? 1 : -1);
     setStep(nextStep);
   };
 
-  // Read user from localStorage (set by auth)
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const username = user?.username || "Vendor";
-
-  useEffect(() => {
-    setVendorMeta({
-      isOnline,
-      pendingSync,
-      syncingNow,
-    });
-  }, [isOnline, pendingSync, syncingNow]);
-
-  /* ── Network detection ── */
-  useEffect(() => {
-    const goOnline = async () => {
-      setIsOnline(true);
-
-      await syncOfflineQueue();
-
-      // 🔥 trigger UI refresh
-      setRefreshKey((prev) => prev + 1);
-    };
-    const goOffline = () => setIsOnline(false);
-    window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
-    return () => {
-      window.removeEventListener("online", goOnline);
-      window.removeEventListener("offline", goOffline);
-    };
+  const fetchRecords = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getVendorRecords();
+      if (data?.Status && Array.isArray(data.Records)) {
+        setRecords(data.Records);
+        localStorage.setItem(RECORDS_CACHE_KEY, JSON.stringify(data.Records));
+      }
+    } catch (err) {
+      if (err.response?.status === 401) return; // AuthContext already logged us out
+      const cached = localStorage.getItem(RECORDS_CACHE_KEY);
+      if (cached) setRecords(JSON.parse(cached));
+      else setError("No offline data available.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => {
-    if (isOnline) {
-      syncOfflineQueue();
-    }
-  }, [isOnline]);
+  // Upload whatever is queued, then pull fresh server records if anything went up.
+  const syncAndRefresh = useCallback(async () => {
+    if (await sync()) await fetchRecords();
+  }, [sync, fetchRecords]);
 
   useEffect(() => {
-    const queue = JSON.parse(
-      localStorage.getItem("vendor_offline_queue") || "[]",
-    );
-    if (queue.length > 0) setPendingSync(true);
-  }, []);
-
-  // ===============  PWA Setup ========================
+    setVendorMeta({ isOnline, syncingNow: syncing });
+  }, [isOnline, syncing, setVendorMeta]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const prompt = getPrompt();
-      if (prompt) {
-        setDeferredPrompt(prompt);
-        setShowInstall(true);
-        clearInterval(interval);
-      }
-    }, 1000);
+    fetchRecords();
+  }, [fetchRecords]);
 
-    return () => clearInterval(interval);
-  }, []);
-
-  /* ── Sync offline queue when back online ── */
-
-  const syncOfflineQueue = useCallback(async () => {
-    if (syncingNow) {
-      console.log("⛔ Sync already running, skipping...");
-      return;
-    }
-
-    const queue = JSON.parse(
-      localStorage.getItem("vendor_offline_queue") || "[]",
-    );
-
-    console.log("🔄 SYNC START, queue snapshot:", queue);
-
-    if (!queue.length) return;
-
-    setSyncingNow(true);
-    setPendingSync(true);
-
-    const updatedQueue = [...queue]; // 🔥 clone safely
-    const remaining = [];
-
-    // 🔥 mark all "ready" → "syncing" BEFORE processing
-    for (let i = 0; i < updatedQueue.length; i++) {
-      if (updatedQueue[i].status === "ready") {
-        updatedQueue[i] = {
-          ...updatedQueue[i],
-          status: "syncing",
-        };
-      }
-    }
-
-    // 🔥 persist immediately (VERY IMPORTANT)
-    localStorage.setItem("vendor_offline_queue", JSON.stringify(updatedQueue));
-
-    for (const item of updatedQueue) {
-      if (item.status !== "syncing") {
-        remaining.push(item);
-        continue;
-      }
-
-      try {
-        const images = await getImages(item.imageIds);
-
-        const res = await uploadVendorImages({
-          code: item.code,
-          geoLocation: item.geoLocation,
-          images,
-        });
-
-        // ❌ INVALID CODE
-        if (!res?.Status) {
-          remaining.push({
-            ...item,
-            status: "failed",
-            error: res?.Message || "Invalid Code",
-          });
-          continue;
-        }
-
-        // ✅ SUCCESS → DELETE COMPLETELY
-        await deleteImages(item.imageIds);
-
-        // 🔥 track success
-        setSyncedIds((prev) =>
-          prev.includes(item.id) ? prev : [...prev, item.id],
-        );
-      } catch (err) {
-        console.error("❌ FULL ERROR:", err);
-
-        const serverMessage =
-          err?.response?.data?.Message || err?.response?.data?.message;
-
-        if (serverMessage) {
-          remaining.push({
-            ...item,
-            status: "failed",
-            error: serverMessage,
-          });
-        } else {
-          remaining.push({
-            ...item,
-            status: "ready",
-            error: "No Internet Connection",
-          });
-        }
-      }
-    }
-
-    console.log("📦 Remaining queue after sync:", remaining);
-
-    localStorage.setItem("vendor_offline_queue", JSON.stringify(remaining));
-
-    setPendingSync(remaining.length > 0);
-    setSyncingNow(false);
-
-    // 🔥 UI refresh AFTER everything
-    setRefreshKey((prev) => prev + 1);
-  }, [syncingNow]);
+  // Runs on mount (if online) and on every offline → online transition.
+  useEffect(() => {
+    if (isOnline) syncAndRefresh();
+  }, [isOnline, syncAndRefresh]);
 
   const handleCampaign = (e) => {
     e.preventDefault();
@@ -242,115 +101,20 @@ export default function VendorDashboard() {
     goToStep("upload");
   };
 
+  // "Submit" on an offline card: mark ready again and try to upload.
   const markAsReady = async (record) => {
-    console.log("🟢 markAsReady received record:", record);
-
-    const queue = JSON.parse(
-      localStorage.getItem("vendor_offline_queue") || "[]",
-    );
-
-    console.log("📦 Queue BEFORE update:", queue);
-    const updated = queue.map((item) =>
-      item.id === record.ID
-        ? {
-            ...item,
-            code: record.code,
-            status: "ready",
-            error: null,
-            geoLocation: record.Location || record.geoLocation,
-          }
-        : item,
-    );
-
-    console.log("📦 Queue AFTER update:", updated);
-
-    localStorage.setItem("vendor_offline_queue", JSON.stringify(updated));
-
-    console.log("🚀 Calling syncOfflineQueue now...");
-    await syncOfflineQueue();
-
-    setRefreshKey((prev) => prev + 1);
+    patchQueueItem(record.ID, {
+      code: record.code,
+      status: "ready",
+      error: null,
+      geoLocation: record.Location || record.geoLocation,
+    });
+    refresh();
+    await syncAndRefresh();
   };
 
-  const stepLabels = ["Graffiti", "Upload"];
   const stepIndex = step === "campaign" ? 0 : step === "upload" ? 1 : -1;
 
-  useEffect(() => {
-    if (shouldShowIOSInstall()) {
-      setShowIOSInstall(true);
-      localStorage.setItem(IOS_LAST_SHOWN, Date.now().toString());
-    }
-  }, []);
-
-  // ======================  Records  ==============================
-
-  useEffect(() => {
-    fetchRecords();
-  }, []);
-
-  const fetchRecords = async () => {
-    // Don't retry after 401 error
-    if (isUnauthorized) return;
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const data = await getVendorRecords();
-
-      if (data?.Status && Array.isArray(data.Records)) {
-        setRecords(data.Records);
-
-        localStorage.setItem(
-          "vendor_records_cache",
-          JSON.stringify(data.Records),
-        );
-      }
-    } catch (err) {
-      // If 401 Unauthorized, mark as such to prevent retries
-      if (err.response?.status === 401) {
-        setIsUnauthorized(true);
-        // Don't show error toast here - API interceptor already handles it
-      } else {
-        const cached = localStorage.getItem("vendor_records_cache");
-
-        if (cached) {
-          setRecords(JSON.parse(cached));
-        } else {
-          setError("No offline data available.");
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const pageVariants = {
-    initial: (direction) => ({
-      x: direction > 0 ? 80 : -80,
-      opacity: 0,
-      filter: "blur(6px)",
-    }),
-
-    animate: {
-      x: 0,
-      opacity: 1,
-      filter: "blur(0px)",
-      transition: {
-        duration: 0.35,
-        ease: [0.22, 1, 0.36, 1],
-      },
-    },
-
-    exit: (direction) => ({
-      x: direction > 0 ? -80 : 80,
-      opacity: 0,
-      filter: "blur(4px)",
-      transition: {
-        duration: 0.25,
-      },
-    }),
-  };
   return (
     <div
       className="min-h-screen"
@@ -360,158 +124,7 @@ export default function VendorDashboard() {
         fontFamily: "var(--font-body)",
       }}
     >
-      <AnimatePresence>
-        {(showInstall || showIOSInstall) && (
-          <motion.div
-            initial={{ opacity: 0, y: -40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -40 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed top-4 left-0 right-0 z-50 flex justify-center px-2"
-          >
-            <div
-              className="rounded-2xl border backdrop-blur-xl shadow-2xl overflow-hidden"
-              style={{
-                background: "rgba(255,255,255,0.92)",
-                borderColor: "var(--color-border)",
-                boxShadow:
-                  "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(232,66,10,0.10)",
-              }}
-            >
-              {/* Top accent bar */}
-              <div
-                className="h-1 w-full"
-                style={{
-                  background:
-                    "linear-gradient(90deg, var(--color-primary), var(--color-accent))",
-                }}
-              />
-
-              <div className="px-4 pt-3 pb-4 flex flex-col gap-3">
-                {/* Title row */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-base shadow-sm"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
-                      }}
-                    >
-                      📲
-                    </div>
-                    <div>
-                      <p
-                        className="text-sm font-bold leading-tight"
-                        style={{
-                          fontFamily: "var(--font-display)",
-                          color: "var(--color-secondary)",
-                        }}
-                      >
-                        Install App
-                      </p>
-                      <p
-                        className="text-[11px] leading-tight"
-                        style={{ color: "var(--color-text-muted)" }}
-                      >
-                        Add to your home screen
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Dismiss X */}
-                  <button
-                    onClick={() => {
-                      setShowInstall(false);
-                      setShowIOSInstall(false);
-                    }}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs transition-colors"
-                    style={{
-                      color: "var(--color-text-muted)",
-                      background: "var(--color-bg-secondary)",
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {/* Description */}
-                <p
-                  className="text-xs leading-relaxed"
-                  style={{ color: "var(--color-text-secondary)" }}
-                >
-                  Get faster access and offline support by installing this app
-                  on your device.
-                </p>
-
-                {/* ACTIONS — Android/Desktop */}
-                {!isIos() && deferredPrompt && (
-                  <div className="flex gap-2">
-                    <motion.button
-                      whileHover={{ scale: 1.02, y: -1 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={async () => {
-                        deferredPrompt.prompt();
-                        await deferredPrompt.userChoice;
-                        setShowInstall(false);
-                      }}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white"
-                      style={{
-                        background: "var(--color-primary)",
-                        fontFamily: "var(--font-display)",
-                        boxShadow: "0 4px 12px rgba(232,66,10,0.28)",
-                      }}
-                    >
-                      Install Now
-                    </motion.button>
-
-                    <button
-                      onClick={() => setShowInstall(false)}
-                      className="px-4 py-2.5 rounded-xl text-xs font-semibold border"
-                      style={{
-                        color: "var(--color-text-muted)",
-                        borderColor: "var(--color-border-strong)",
-                        background: "var(--color-bg)",
-                      }}
-                    >
-                      Later
-                    </button>
-                  </div>
-                )}
-
-                {/* iOS Instructions */}
-                {isIos() && !isInStandaloneMode() && showIOSInstall && (
-                  <>
-                    <div
-                      className="text-xs text-center leading-relaxed py-2 px-3 rounded-xl"
-                      style={{
-                        background: "var(--color-bg-secondary)",
-                        color: "var(--color-text-secondary)",
-                      }}
-                    >
-                      Tap <b>Share</b> 📤 then <b>Add to Home Screen</b> ＋
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        localStorage.setItem(IOS_PROMPT_KEY, "true");
-                        setShowIOSInstall(false);
-                      }}
-                      className="text-[11px] text-center font-semibold uppercase tracking-wider"
-                      style={{
-                        color: "var(--color-text-muted)",
-                        fontFamily: "var(--font-display)",
-                      }}
-                    >
-                      Got it
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <InstallPrompt />
 
       {/* ==========================  Header ================================= */}
       <div className="flex items-center justify-between px-4 pt-6">
@@ -833,15 +446,8 @@ export default function VendorDashboard() {
                 onSubmitted={async () => {
                   setEditingRecord(null);
                   goToStep("records");
-
-                  // 🔥 run sync
-                  await syncOfflineQueue();
-
-                  // 🔥 fetch fresh records from server
-                  await fetchRecords();
-
-                  // 🔥 force UI refresh
-                  setRefreshKey((prev) => prev + 1);
+                  refresh();
+                  await syncAndRefresh();
                 }}
                 editingRecord={editingRecord}
               />
@@ -859,12 +465,11 @@ export default function VendorDashboard() {
               className="w-full max-w-5xl"
             >
               <SubmissionList
-                key={refreshKey}
                 records={records}
+                queue={queue}
                 loading={loading}
                 error={error}
-                refreshKey={refreshKey}
-                syncedIds={syncedIds}
+                onRetry={fetchRecords}
                 onNewSubmission={() => {
                   setEditingRecord(null);
                   setCampaignCode("");

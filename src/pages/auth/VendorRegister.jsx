@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { registerVendor } from "../../api/vendorAuth.service";
+import { registerVendor } from "../../api/authApi";
 
 const VendorRegister = () => {
   const navigate = useNavigate();
@@ -14,14 +14,6 @@ const VendorRegister = () => {
   });
 
   const [errors, setErrors] = useState({});
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    if (token) {
-      navigate("/");
-    }
-  }, [navigate]);
 
   const validate = () => {
     const newErrors = {};

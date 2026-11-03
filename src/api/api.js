@@ -1,65 +1,31 @@
 import axios from "axios";
 import { BASE_URL } from "../../config";
-import toast from "react-hot-toast";
+import { getUserFromStorage } from "../utils/userRoleLocalStorage";
 
-const api = axios.create({
-  baseURL: BASE_URL,
-});
+const api = axios.create({ baseURL: BASE_URL });
 
 api.interceptors.request.use((config) => {
-  const user = JSON.parse(localStorage.getItem("user"));
-
-  if (user?.token) {
-    config.headers.Authorization = `Bearer ${user.token}`;
-  }
-
+  const token = getUserFromStorage()?.token;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Track 401 state to prevent infinite loops
-let isHandling401 = false;
-let isTokenInvalidated = false;
+// AuthContext registers this so a 401 clears React state too (not just
+// localStorage) — the route guards then redirect to /login on their own.
+let onUnauthorized = () => {};
+export const setUnauthorizedHandler = (fn) => {
+  onUnauthorized = fn;
+};
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle 401 Unauthorized (token invalid, expired, or logged in elsewhere)
-    if (error.response?.status === 401) {
-      // If already handling 401, don't process again (prevents loop)
-      if (isHandling401 || isTokenInvalidated) {
-        return Promise.reject(error);
-      }
-
-      isHandling401 = true;
-      isTokenInvalidated = true;
-
-      // Clear auth data immediately
-      localStorage.removeItem("user");
-
-      // Show user-friendly message
-      const reason = error.response?.data?.message || 
-                     "Your session has ended. Please log in again.";
-      
-      toast.error(reason, {
-        duration: 5000,
-      });
-
-      // Redirect to login immediately
-      setTimeout(() => {
-        if (window.location.hash !== "#/login") {
-          window.location.href = "/#/login";
-        }
-        isHandling401 = false;
-      }, 300);
-
-      return Promise.reject(error);
+    // Only authenticated requests can "expire"; a wrong-password login is not a session end.
+    if (error.response?.status === 401 && error.config?.headers?.Authorization) {
+      onUnauthorized(error.response.data?.message || error.response.data?.Message);
     }
-
-    // Reset flag for non-401 errors
-    isHandling401 = false;
-
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -11,6 +11,7 @@ import {
   Images,
 } from "lucide-react";
 import { addMoreImages } from "../../../api/vendorApi";
+import { compressImage } from "../../../utils/compressImage";
 
 export default function AddImagesModal({ record, onClose, onUploaded }) {
   const [images, setImages] = useState([]);
@@ -20,8 +21,13 @@ export default function AddImagesModal({ record, onClose, onUploaded }) {
   const [errorMsg, setErrorMsg] = useState("");
   const inputRef = useRef(null);
 
-  const addFiles = useCallback((files) => {
-    const valid = Array.from(files).filter((f) => f.type.startsWith("image/"));
+  // Same compression as the main upload form — raw phone photos are 4–10 MB each.
+  const addFiles = useCallback(async (files) => {
+    const valid = await Promise.all(
+      Array.from(files)
+        .filter((f) => f.type.startsWith("image/"))
+        .map(compressImage),
+    );
     setImages((prev) => {
       const existingNames = new Set(prev.map((f) => f.name + f.size));
       return [
@@ -30,6 +36,9 @@ export default function AddImagesModal({ record, onClose, onUploaded }) {
       ];
     });
   }, []);
+
+  const previewUrls = useMemo(() => images.map((f) => URL.createObjectURL(f)), [images]);
+  useEffect(() => () => previewUrls.forEach(URL.revokeObjectURL), [previewUrls]);
 
   const removeImage = (index) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
@@ -254,7 +263,7 @@ export default function AddImagesModal({ record, onClose, onUploaded }) {
                           layout
                         >
                           <img
-                            src={URL.createObjectURL(file)}
+                            src={previewUrls[i]}
                             alt={file.name}
                             className="w-full h-full object-cover"
                           />

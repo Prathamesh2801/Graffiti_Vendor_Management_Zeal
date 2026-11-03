@@ -1,17 +1,13 @@
 import { useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
-import { useAuth } from "../../context/AuthContext";
 import Header from "./Header";
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { pathname } = useLocation();
-  const { user } = useAuth();
   const [vendorMeta, setVendorMeta] = useState({
     isOnline: navigator.onLine,
     syncingNow: false,
-    pendingSync: false,
   });
 
   return (
@@ -28,12 +24,11 @@ export default function AppLayout() {
           onMenuClick={() => setSidebarOpen(true)}
           isOnline={vendorMeta.isOnline}
           syncingNow={vendorMeta.syncingNow}
-          pendingSync={vendorMeta.pendingSync}
         />
 
         {/* Page content */}
         <main style={{ flex: 1, padding: "28px 28px" }}>
-          <Outlet  context={{ setVendorMeta }} />
+          <Outlet context={{ setVendorMeta }} />
         </main>
       </div>
     </div>

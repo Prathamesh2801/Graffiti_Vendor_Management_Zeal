@@ -7,7 +7,7 @@ import {
   updateImageStatus,
 } from "../../../api/submissionApi";
 import { getUserFromStorage } from "../../../utils/userRoleLocalStorage";
-import { BASE_URL } from "../../../../config";
+import { imageUrl } from "../../../utils/imageUrl";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_META = {
@@ -176,7 +176,6 @@ function SubmissionCard({
   const meta = STATUS_META[record.Status] || STATUS_META.Pending;
   const images = record.Campaign_Images || [];
   const preview = images[0];
-  const fix = (p) => p?.replace(/\.\.\//g, "/") || "";
 
   const doUpdateSub = async (newStatus) => {
     setUpdatingSub(true);
@@ -249,13 +248,13 @@ function SubmissionCard({
               className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 rounded-xl overflow-hidden cursor-pointer relative group"
               style={{ border: "1px solid var(--color-border)" }}
               onClick={() =>
-                preview && setLightboxSrc(BASE_URL + fix(preview.Wall_Image))
+                preview && setLightboxSrc(imageUrl(preview.Wall_Image))
               }
             >
               {preview ? (
                 <>
                   <img
-                    src={BASE_URL + fix(preview.Wall_Image)}
+                    src={imageUrl(preview.Wall_Image)}
                     alt="thumb"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                     onError={(e) => {
@@ -465,11 +464,11 @@ function SubmissionCard({
                         className="aspect-square rounded-xl overflow-hidden cursor-zoom-in relative"
                         style={{ border: "1px solid var(--color-border)" }}
                         onClick={() =>
-                          setLightboxSrc(BASE_URL + fix(img.Wall_Image))
+                          setLightboxSrc(imageUrl(img.Wall_Image))
                         }
                       >
                         <img
-                          src={BASE_URL + fix(img.Wall_Image)}
+                          src={imageUrl(img.Wall_Image)}
                           alt={`img-${img.ID}`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {

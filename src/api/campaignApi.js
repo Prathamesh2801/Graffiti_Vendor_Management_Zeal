@@ -37,18 +37,17 @@ export const updateCampaign = async (data) => {
     ...(data.startDate && { Start_Date: data.startDate }),
     ...(data.endDate && { End_Date: data.endDate }),
     ...(data.state && { State: data.state }),
-    ...(data.walls && { Number_of_Walls: data.walls }),
+    ...(data.walls !== undefined && data.walls !== "" && { Number_of_Walls: data.walls }),
     ...(data.assignedUsers && {
       Assigned_Users: JSON.stringify(data.assignedUsers),
     }),
   });
-  console.log("Update Response:", res);
   return res.data;
 };
 
 /* ================= DELETE CAMPAIGN ================= */
 export const deleteCampaign = async (id) => {
-  const res = await api.delete(`/Admin/campaigns.php?Campaign_ID=${id}`);
+  const res = await api.delete("/Admin/campaigns.php", { params: { Campaign_ID: id } });
 
   return res.data;
 };

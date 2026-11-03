@@ -12,7 +12,6 @@ export default function Header({
   onMenuClick,
   isOnline,
   syncingNow,
-  pendingSync,
 }) {
   const { user } = useAuth();
 

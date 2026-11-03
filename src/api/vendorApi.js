@@ -5,7 +5,6 @@ export const getVendorRecords = async (params = {}) => {
   const res = await api.get("/Vendor/dashboard.php", {
     params,
   });
-  console.log("Fetch Vendor Data : ", res.data);
   return res.data;
 };
 
@@ -21,7 +20,6 @@ export const uploadVendorImages = async ({ code, geoLocation, images }) => {
   });
 
   const res = await api.post("/Vendor/dashboard.php", formData);
-  console.log("upload Vendor Data : ", res.data);
 
   return res.data;
 };
@@ -33,12 +31,10 @@ export const addMoreImages = async ({ uniqueId, images }) => {
     formData.append("Wall_Image", file);
   });
 
-  const res = await api.put(
-    `/Vendor/dashboard.php?Unique_ID=${uniqueId}`,
-    formData,
-  );
+  const res = await api.put("/Vendor/dashboard.php", formData, {
+    params: { Unique_ID: uniqueId },
+  });
 
-  console.log("Add More Images Response:", res.data);
 
   return res.data;
 };

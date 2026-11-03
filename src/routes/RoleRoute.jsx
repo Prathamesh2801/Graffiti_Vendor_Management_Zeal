@@ -2,16 +2,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function RoleRoute({ allowedRoles, children }) {
-  const { user, isLoading } = useAuth();
-
-  // Show nothing while loading to prevent flickering
-  if (isLoading) return null;
-
-  if (!user) return <Navigate to="/login" />;
-
-  if (!allowedRoles.includes(user.role)) {
-    return <Navigate to="/app" />; // fallback
-  }
-
-  return children;
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return allowedRoles.includes(user.role) ? children : <Navigate to="/app" replace />;
 }

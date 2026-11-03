@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { BASE_URL } from "../../../../config";
 import { getImages } from "../../../utils/indexedDB";
+import { imageUrl as resolveImageUrl } from "../../../utils/imageUrl";
 import { AlertCircle, ChevronDown, ChevronUp, ImagePlus, Pencil, Send, ZoomIn } from "lucide-react";
 
 /* ── Helpers ── */
@@ -15,25 +15,6 @@ function formatDate(dateStr) {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function resolveImageUrl(path) {
-  if (!path) return null;
-
-  // 🔥 1. Handle blob URLs (offline images)
-  if (path.startsWith("blob:")) {
-    return path;
-  }
-
-  // 🔥 2. Handle full URLs (already correct)
-  if (path.startsWith("http")) {
-    return path;
-  }
-
-  // 🔥 3. Handle relative paths from server
-  const clean = path.replace(/^\.\.\//, "");
-
-  return `${BASE_URL}/${clean}`;
 }
 
 /* ── Status badge ── */
@@ -159,13 +140,17 @@ function RecordCard({ record, index, onEdit, onSubmit, onAddImages }) {
     if (record.isOffline && record.imageIds) {
       getImages(record.imageIds).then(setOfflineImages);
     }
-  }, [record]);
+  }, [record.isOffline, record.imageIds]);
+
+  // One blob URL per file (not per render), revoked when the files change/unmount.
+  const offlineUrls = useMemo(
+    () => offlineImages.map((file) => URL.createObjectURL(file)),
+    [offlineImages],
+  );
+  useEffect(() => () => offlineUrls.forEach(URL.revokeObjectURL), [offlineUrls]);
 
   const images = record.isOffline
-    ? offlineImages.map((file) => ({
-        Wall_Image: URL.createObjectURL(file),
-        Status: "Pending",
-      }))
+    ? offlineUrls.map((url) => ({ Wall_Image: url, Status: "Pending" }))
     : record.Campaign_Images || [];
   const overallStatus = record.Status;
 
@@ -557,21 +542,18 @@ export default function SubmissionList({
   onEdit,
   onSubmit,
   onAddImages,
-  syncedIds,
+  onRetry,
   records,
+  queue,
   loading,
   error,
 }) {
   const [filter, setFilter] = useState("All");
 
-  const getOfflineRecords = () => {
-    const queue = JSON.parse(
-      localStorage.getItem("vendor_offline_queue") || "[]",
-    );
-
-    return queue
-      .filter((item) => !syncedIds.includes(item.id))
-      .map((item) => ({
+  // Offline queue items shaped like server records so one card renders both.
+  const offlineRecords = useMemo(
+    () =>
+      queue.map((item) => ({
         ID: item.id,
         code: item.code,
         Campaign_ID: item.code,
@@ -588,10 +570,12 @@ export default function SubmissionList({
         isOffline: true,
         imageIds: item.imageIds,
         error: item.error,
-      }));
-  };
+      })),
+    [queue],
+  );
 
-  const combinedRecords = [...getOfflineRecords(), ...records];
+  const combinedRecords = [...offlineRecords, ...records];
+  const hasAny = combinedRecords.length > 0;
 
   const statuses = ["All", "Pending", "Approved", "Rejected"];
   const filtered =
@@ -608,12 +592,12 @@ export default function SubmissionList({
   return (
     <div className="flex flex-col gap-5">
       {/* Summary pills */}
-      {records.length > 0 && (
+      {hasAny && (
         <div className="flex gap-2 flex-wrap">
           {[
             {
               label: "Total",
-              count: records.length,
+              count: combinedRecords.length,
               color: "var(--color-secondary)",
             },
             { label: "Pending", count: counts.Pending || 0, color: "#9a6e00" },
@@ -651,7 +635,7 @@ export default function SubmissionList({
       )}
 
       {/* Filter tabs */}
-      {records.length > 0 && (
+      {hasAny && (
         <div
           className="flex gap-1 p-1 rounded-xl"
           style={{ background: "var(--color-bg-secondary)" }}
@@ -711,7 +695,7 @@ export default function SubmissionList({
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             type="button"
-            // onClick={fetchRecords}
+            onClick={onRetry}
             className="h-9 px-5 rounded-xl text-xs font-bold uppercase tracking-wider text-white"
             style={{
               fontFamily: "var(--font-display)",
@@ -724,7 +708,7 @@ export default function SubmissionList({
       )}
 
       {/* Empty state */}
-      {!loading && !error && records.length === 0 && (
+      {!loading && !error && !hasAny && (
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
@@ -780,7 +764,7 @@ export default function SubmissionList({
       )}
 
       {/* No results for filter */}
-      {!loading && !error && records.length > 0 && filtered.length === 0 && (
+      {!loading && !error && hasAny && filtered.length === 0 && (
         <div
           className="text-center py-10 text-sm"
           style={{ color: "var(--color-text-muted)" }}

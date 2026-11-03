@@ -9,7 +9,6 @@ import {
   Users,
   QrCode,
 } from "lucide-react";
-import { getUserFromStorage } from "../../../utils/userRoleLocalStorage";
 
 const COLUMNS = [
   { key: "srNo", label: "#", sortable: false },

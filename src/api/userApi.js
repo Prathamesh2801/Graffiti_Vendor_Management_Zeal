@@ -26,6 +26,6 @@ export const updateUser = async (data) => {
 };
 
 export const deleteUser = async (username) => {
-  const res = await api.delete(`/Admin/user.php?Username=${username}`);
+  const res = await api.delete("/Admin/user.php", { params: { Username: username } });
   return res.data;
 };

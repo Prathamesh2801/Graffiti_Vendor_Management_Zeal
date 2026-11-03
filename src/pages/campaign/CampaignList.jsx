@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   getCampaigns,
   createCampaign,
@@ -17,7 +18,6 @@ import CampaignPagination from "../../components/features/campaign/CampaignPagin
 import CampaignFormModal from "../../components/features/campaign/CampaignFormModal";
 import DeleteConfirmModal from "../../components/features/campaign/DeleteConfirmModal";
 import ViewCampaignModal from "../../components/features/campaign/ViewCampaignModal";
-import VendorSubmissions from "../../components/features/campaign/VendorSubmissions";
 import CampaignQrModal from "../../components/features/campaign/CampaignQrModal";
 import { getUserFromStorage } from "../../utils/userRoleLocalStorage";
 
@@ -32,11 +32,10 @@ const EMPTY_FORM = {
 };
 
 export default function CampaignList() {
+  const navigate = useNavigate();
   const [allCampaigns, setAllCampaigns] = useState([]);
-  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
-  const [isUnauthorized, setIsUnauthorized] = useState(false); // Track 401 state
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -46,9 +45,6 @@ export default function CampaignList() {
 
   // QR Modal — holds the campaign to show QR for
   const [qrCampaign, setQrCampaign] = useState(null);
-
-  // Vendor Submissions view — holds the campaign to show submissions for
-  const [submissionCampaign, setSubmissionCampaign] = useState(null);
 
   // Toolbar state
   const [search, setSearch] = useState("");
@@ -66,18 +62,7 @@ export default function CampaignList() {
   const user = getUserFromStorage();
   const isAdmin = user?.role?.toLowerCase() === "admin";
 
-  useEffect(() => {
-    // Only fetch if user is still valid (not logged out on another device)
-    if (user?.token) {
-      fetchCampaigns();
-      fetchUsers();
-    }
-  }, []);
-
   const fetchCampaigns = async () => {
-    // Don't retry after 401 error
-    if (isUnauthorized) return;
-
     try {
       setLoading(true);
       const res = await getCampaigns();
@@ -96,22 +81,14 @@ export default function CampaignList() {
         setAllCampaigns(formatted);
       }
     } catch (error) {
-      // If 401 Unauthorized, mark as such to prevent retries
-      if (error.response?.status === 401) {
-        setIsUnauthorized(true);
-        // Don't show error toast here - API interceptor already handles it
-      } else {
-        toast.error("Failed to load campaigns");
-      }
+      // 401 is handled globally (AuthContext logs out + toasts)
+      if (error.response?.status !== 401) toast.error("Failed to load campaigns");
     } finally {
       setLoading(false);
     }
   };
 
   const fetchUsers = async () => {
-    // Don't retry after 401 error
-    if (isUnauthorized) return;
-
     try {
       const res = await getUsers();
       if (res.Status) {
@@ -123,18 +100,19 @@ export default function CampaignList() {
           })),
         );
       }
-    } catch (error) {
-      // If 401 Unauthorized, mark as such to prevent retries
-      if (error.response?.status === 401) {
-        setIsUnauthorized(true);
-      }
-      /* otherwise silent */
+    } catch {
+      /* silent — only feeds the assign-users dropdown */
     }
   };
 
-  // Filter + sort + paginate
   useEffect(() => {
-    let data = [...allCampaigns];
+    fetchCampaigns();
+    fetchUsers();
+  }, []);
+
+  // Derived on render (no extra state/effect pass): filter → sort → paginate.
+  const filtered = useMemo(() => {
+    let data = allCampaigns;
 
     if (search) {
       const q = search.toLowerCase();
@@ -151,7 +129,7 @@ export default function CampaignList() {
     if (dateTo) data = data.filter((c) => c.endDate <= dateTo);
 
     if (sortField) {
-      data.sort((a, b) => {
+      data = [...data].sort((a, b) => {
         const av = a[sortField] ?? "";
         const bv = b[sortField] ?? "";
         if (av < bv) return sortOrder === "asc" ? -1 : 1;
@@ -160,21 +138,15 @@ export default function CampaignList() {
       });
     }
 
+    return data;
+  }, [allCampaigns, search, dateFrom, dateTo, sortField, sortOrder]);
+
+  const campaigns = useMemo(() => {
     const start = (page - 1) * limit;
-    const paginated = data
+    return filtered
       .slice(start, start + limit)
       .map((c, i) => ({ ...c, srNo: start + i + 1 }));
-    setCampaigns(paginated);
-  }, [
-    allCampaigns,
-    search,
-    dateFrom,
-    dateTo,
-    page,
-    limit,
-    sortField,
-    sortOrder,
-  ]);
+  }, [filtered, page, limit]);
 
   const handleSort = (field) => {
     if (sortField === field)
@@ -290,32 +262,6 @@ export default function CampaignList() {
     }
   };
 
-  const totalFiltered = (() => {
-    let data = [...allCampaigns];
-    if (search) {
-      const q = search.toLowerCase();
-      data = data.filter((c) => {
-        const assignedStr = (c.assignedUsers || []).join(" ").toLowerCase();
-        return [c.name, c.state, c.description, assignedStr]
-          .join(" ")
-          .toLowerCase()
-          .includes(q);
-      });
-    }
-    if (dateFrom) data = data.filter((c) => c.startDate >= dateFrom);
-    if (dateTo) data = data.filter((c) => c.endDate <= dateTo);
-    return data.length;
-  })();
-
-  // ── If a campaign's submissions are being viewed, render VendorSubmissions ──
-  if (submissionCampaign) {
-    return (
-      <VendorSubmissions
-        campaign={submissionCampaign}
-        onBack={() => setSubmissionCampaign(null)}
-      />
-    );
-  }
 
   return (
     <div
@@ -381,7 +327,7 @@ export default function CampaignList() {
         <CampaignPagination
           page={page}
           limit={limit}
-          total={totalFiltered}
+          total={filtered.length}
           onPrev={() => setPage((p) => p - 1)}
           onNext={() => setPage((p) => p + 1)}
         />
@@ -431,7 +377,9 @@ export default function CampaignList() {
           }}
           onViewSubmissions={() => {
             setViewTarget(null);
-            setSubmissionCampaign(viewTarget);
+            navigate(`/app/campaigns/${viewTarget.id}/submissions`, {
+              state: { campaign: viewTarget },
+            });
           }}
         />
       )}

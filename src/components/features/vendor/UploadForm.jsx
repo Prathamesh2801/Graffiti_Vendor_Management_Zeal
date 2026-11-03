@@ -2,8 +2,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ImagePreviewGrid from "./ImagePreviewGrid";
 import { getImages, saveImages } from "../../../utils/indexedDB";
-import { registerBackgroundSync } from "../../../utils/registerSync";
 import { compressImage } from "../../../utils/compressImage";
+import { enqueue, patchQueueItem } from "../../../utils/offlineQueue";
 
 /* ─────────────────────────────────────────────────
    Geolocation helper
@@ -27,7 +27,7 @@ function getGeoLocation() {
         localStorage.setItem(GEO_CACHE_KEY, coords);
         resolve(coords);
       },
-      (_err) => {
+      () => {
         // Attempt last-known offline fallback
         const cached = localStorage.getItem(GEO_CACHE_KEY);
         if (cached) {
@@ -41,14 +41,6 @@ function getGeoLocation() {
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 },
     );
   });
-}
-
-function enqueueOffline(item) {
-  const queue = JSON.parse(
-    localStorage.getItem("vendor_offline_queue") || "[]",
-  );
-  queue.push(item);
-  localStorage.setItem("vendor_offline_queue", JSON.stringify(queue));
 }
 
 /* ─── Status pill ─── */
@@ -146,13 +138,25 @@ export default function UploadForm({
 }) {
   const [images, setImages] = useState([]); // { id, file, preview }
   const [dragOver, setDragOver] = useState(false);
-  const [geoStatus, setGeoStatus] = useState("idle");
-  const [geoCoords, setGeoCoords] = useState(null);
+  // Editing a queued record: start with its saved location (form remounts per edit).
+  const initialGeo = editingRecord?.geoLocation || editingRecord?.Location || null;
+  const [geoStatus, setGeoStatus] = useState(initialGeo ? "ok" : "idle");
+  const [geoCoords, setGeoCoords] = useState(initialGeo);
   const [geoError, setGeoError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const fileInputRef = useRef(null);
   const isEditMode = !!editingRecord;
+
+  // Free preview blob URLs when the form unmounts.
+  const imagesRef = useRef(images);
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+  useEffect(
+    () => () => imagesRef.current.forEach((i) => URL.revokeObjectURL(i.preview)),
+    [],
+  );
 
   /* ── Geo ── */
   const fetchGeo = useCallback(async () => {
@@ -181,17 +185,6 @@ export default function UploadForm({
     }
   }, [editingRecord]);
 
-  useEffect(() => {
-    if (editingRecord) {
-      // 🔥 FIX FIELD NAME HERE
-      const location = editingRecord.geoLocation || editingRecord.Location;
-
-      if (location) {
-        setGeoCoords(location);
-        setGeoStatus("ok");
-      }
-    }
-  }, [editingRecord]);
 
 
   const addFiles = async (files) => {
@@ -262,31 +255,20 @@ export default function UploadForm({
         );
 
         // 🔥 2. Update queue
-        const queue = JSON.parse(
-          localStorage.getItem("vendor_offline_queue") || "[]",
-        );
-
-        const updated = queue.map((item) =>
-          item.id === editingRecord.ID
-            ? {
-                ...item,
-                code: campaignCode,
-                geoLocation: geoCoords,
-                imageCount: images.length, // 🔥 update count
-                status: "ready",
-                error: null,
-              }
-            : item,
-        );
-
-        localStorage.setItem("vendor_offline_queue", JSON.stringify(updated));
+        patchQueueItem(editingRecord.ID, {
+          code: campaignCode,
+          geoLocation: geoCoords,
+          imageCount: images.length,
+          status: "ready",
+          error: null,
+        });
       } else {
         await saveImages(
           submissionId,
           images.map((i) => i.file),
         );
 
-        enqueueOffline({
+        enqueue({
           ...base,
           imageIds: submissionId,
           status: "ready",

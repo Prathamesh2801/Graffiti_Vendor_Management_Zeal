@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,14 +30,12 @@ const ROLE_LABEL = {
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
   const role = user?.role;
   const NAV_ITEMS = NAV_CONFIG[role] || [];
 
   const handleLogout = () => {
-    logout();
+    logout(); // ProtectedRoute redirects to /login
     toast.success("Logged out successfully");
-    navigate("/login");
   };
 
   return (

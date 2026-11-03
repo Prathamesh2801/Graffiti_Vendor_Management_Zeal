@@ -37,7 +37,6 @@ export default function UserAuth() {
   const [showPass, setShowPass] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [changePassword, setChangePassword] = useState(false);
-  const [isUnauthorized, setIsUnauthorized] = useState(false); // Track 401 state
 
   const [sortField, setSortField] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
@@ -48,18 +47,12 @@ export default function UserAuth() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // Any filter change → back to page 1.
   useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    setCurrentPage(1);
+    setCurrentPage(1); // eslint-disable-line react-hooks/set-state-in-effect
   }, [search, roleFilter, statusFilter, pageSize]);
 
   const fetchUsers = async () => {
-    // Don't retry after 401 error
-    if (isUnauthorized) return;
-
     try {
       const res = await getUsers();
       if (res.Status) {
@@ -76,15 +69,14 @@ export default function UserAuth() {
         setUsers(formatted);
       }
     } catch (err) {
-      // If 401 Unauthorized, mark as such to prevent retries
-      if (err.response?.status === 401) {
-        setIsUnauthorized(true);
-        // Don't show error toast here - API interceptor already handles it
-      } else {
-        toast.error("Failed to load users");
-      }
+      // 401 is handled globally (AuthContext logs out + toasts)
+      if (err.response?.status !== 401) toast.error("Failed to load users");
     }
   };
+
+  useEffect(() => {
+    fetchUsers(); // eslint-disable-line react-hooks/set-state-in-effect -- initial data load
+  }, []);
 
   /* ─── Helpers ─── */
 
@@ -141,7 +133,8 @@ export default function UserAuth() {
     currentPage * pageSize,
   );
 
-  const SortableHeader = ({ label, field }) => {
+  // Called as a function (not <SortableHeader/>) so it isn't a new component type every render.
+  const sortableHeader = ({ label, field }) => {
     const isActive = sortField === field;
 
     return (
@@ -214,7 +207,7 @@ export default function UserAuth() {
         toast.success("User added");
         fetchUsers();
         closeModal();
-      }
+      } else toast.error(res.Message || "Failed to add user");
     } catch {
       toast.error("Failed to add user");
     }
@@ -239,7 +232,7 @@ export default function UserAuth() {
         toast.success("User updated");
         fetchUsers();
         closeModal();
-      }
+      } else toast.error(res.Message || "Update failed");
     } catch {
       toast.error("Update failed");
     }
@@ -252,7 +245,7 @@ export default function UserAuth() {
         toast.success("User deleted");
         fetchUsers();
         setDeleteConfirm(null);
-      }
+      } else toast.error(res.Message || "Delete failed");
     } catch {
       toast.error("Delete failed");
     }
@@ -294,7 +287,6 @@ export default function UserAuth() {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setPage(1);
             }}
             placeholder="Search by username or role…"
             className="w-full pl-9 pr-4 py-2.5 rounded-xl border text-sm font-body bg-bg-card text-text-primary
@@ -384,13 +376,13 @@ export default function UserAuth() {
               >
                 <th className="px-5 py-3.5 text-xs">Sr No.</th>
 
-                <SortableHeader label="Username" field="username" />
+                {sortableHeader({ label: "Username", field: "username" })}
 
                 <th className="px-5 py-3.5 text-xs">Password</th>
 
-                <SortableHeader label="Role" field="role" />
-                <SortableHeader label="Status" field="status" />
-                <SortableHeader label="Created" field="createdAt" />
+                {sortableHeader({ label: "Role", field: "role" })}
+                {sortableHeader({ label: "Status", field: "status" })}
+                {sortableHeader({ label: "Created", field: "createdAt" })}
 
                 <th className="px-5 py-3.5 text-xs">Actions</th>
               </tr>

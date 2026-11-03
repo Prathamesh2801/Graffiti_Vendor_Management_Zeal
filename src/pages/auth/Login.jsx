@@ -23,7 +23,6 @@ export default function Login({ type = "vendor" }) {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
     const result = await login(form.username, form.password);
     setLoading(false);
     if (result.success) {
