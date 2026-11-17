@@ -3,6 +3,10 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  // Dev only: the lazily-loaded map page made Vite pre-bundle react-leaflet
+  // with its own React copy → "Invalid hook call" on /geo. Force one React.
+  resolve: { dedupe: ["react", "react-dom"] },
+  optimizeDeps: { include: ["react-leaflet", "leaflet"] },
   plugins: [
     react(),
     VitePWA({
