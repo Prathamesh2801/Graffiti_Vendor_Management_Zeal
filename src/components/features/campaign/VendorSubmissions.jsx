@@ -633,18 +633,44 @@ export default function VendorSubmissions({ campaign, onBack }) {
   const [selected, setSelected] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
 
-  const fetchSubmissions = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getSubmissions({ Campaign_ID: campaign.id });
-      if (res.Status) setRecords(res.Records || []);
-      else toast.error(res.Message || "Failed to load");
-    } catch {
-      toast.error("Failed to fetch submissions");
-    } finally {
-      setLoading(false);
+  // silent = background re-check after a write (no full-page spinner).
+  // Returns the fresh records, or null on failure.
+  const fetchSubmissions = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) setLoading(true);
+      try {
+        const res = await getSubmissions({ Campaign_ID: campaign.id });
+        if (res.Status) {
+          setRecords(res.Records || []);
+          return res.Records || [];
+        }
+        toast.error(res.Message || "Failed to load");
+      } catch (err) {
+        if (err.response?.status !== 401) toast.error("Failed to fetch submissions");
+      } finally {
+        if (!silent) setLoading(false);
+      }
+      return null;
+    },
+    [campaign.id],
+  );
+
+  // After a status write, reload from the server so the UI shows what was
+  // actually saved — and say so loudly if the API replied OK but didn't persist.
+  const confirmSaved = async (ids, newStatus) => {
+    const fresh = await fetchSubmissions({ silent: true });
+    if (!fresh) return;
+    const notSaved = ids.filter(
+      (id) => fresh.find((r) => r.ID === id)?.Status !== newStatus,
+    );
+    if (notSaved.length) {
+      toast.error(
+        `${notSaved.length} submission${notSaved.length !== 1 ? "s" : ""} not saved as ${newStatus} on the server`,
+        { duration: 6000 },
+      );
+      console.error("Status not persisted by API:", { newStatus, ids: notSaved });
     }
-  }, [campaign.id]);
+  };
 
   useEffect(() => {
     fetchSubmissions();
@@ -715,27 +741,25 @@ export default function VendorSubmissions({ campaign, onBack }) {
   const allSelected = filtered.length > 0 && selected.size === filtered.length;
   const someSelected = selected.size > 0 && !allSelected;
 
+  // Sequential on purpose: parallel PUTs to the PHP endpoint can race each other.
   const bulkUpdate = async (newStatus) => {
     setBulkLoading(true);
-    let ok = 0;
-    await Promise.all(
-      [...selected].map(async (id) => {
-        try {
-          const res = await updateSubmissionStatus({
-            uniqueId: id,
-            status: newStatus,
-          });
-          if (res.Status) {
-            applySubUpdate(id, newStatus);
-            ok++;
-          }
-        } catch {
-          /* continue */
-        }
-      })
-    );
-    toast.success(`${ok} submission${ok !== 1 ? "s" : ""} marked ${newStatus}`);
+    const okIds = [];
+    let failed = 0;
+    for (const id of selected) {
+      try {
+        const res = await updateSubmissionStatus({ uniqueId: id, status: newStatus });
+        if (res.Status) okIds.push(id);
+        else failed++;
+      } catch {
+        failed++;
+      }
+    }
+    if (okIds.length)
+      toast.success(`${okIds.length} submission${okIds.length !== 1 ? "s" : ""} marked ${newStatus}`);
+    if (failed) toast.error(`${failed} update${failed !== 1 ? "s" : ""} failed`);
     clearSelect();
+    await confirmSaved(okIds, newStatus);
     setBulkLoading(false);
   };
 
@@ -1045,7 +1069,7 @@ export default function VendorSubmissions({ campaign, onBack }) {
           )}
 
           <button
-            onClick={fetchSubmissions}
+            onClick={() => fetchSubmissions()}
             disabled={loading}
             className="px-4 py-2.5 rounded-xl text-sm font-semibold border cursor-pointer transition-all disabled:opacity-50"
             style={{
@@ -1185,8 +1209,14 @@ export default function VendorSubmissions({ campaign, onBack }) {
                   <SubmissionCard
                     record={record}
                     isAdmin={isAdmin}
-                    onUpdateSubmission={applySubUpdate}
-                    onUpdateImage={applyImgUpdate}
+                    onUpdateSubmission={(id, newStatus) => {
+                      applySubUpdate(id, newStatus);
+                      confirmSaved([id], newStatus);
+                    }}
+                    onUpdateImage={(subId, imgId, newStatus) => {
+                      applyImgUpdate(subId, imgId, newStatus);
+                      fetchSubmissions({ silent: true });
+                    }}
                     index={i}
                   />
                 </div>
