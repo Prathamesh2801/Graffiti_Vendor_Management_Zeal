@@ -15,9 +15,10 @@ export default defineConfig({
       includeAssets: ["favicon.svg"],
 
       manifest: {
-        name: "Graffiti Vendor App",
-        short_name: "VendorApp",
-        description: "Offline-first vendor submission app",
+        // Neutral name: the same installed app is used by vendors (phone) and admins/clients (desktop).
+        name: "Graffiti Campaign",
+        short_name: "Graffiti",
+        description: "Wall-graffiti campaigns: vendor photo submissions, approvals and live maps",
         theme_color: "#0f172a",
         background_color: "#0f172a",
         display: "standalone",

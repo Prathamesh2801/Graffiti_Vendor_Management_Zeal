@@ -63,18 +63,19 @@ const InAppText = () => (
   </p>
 );
 
-// ─── Dashboard bottom card (after login) ─────────────────────────────────────
-// Shows automatically unless snoozed ("Not now" = 3 days), never once installed.
-// Also opens on demand from the menu ("Install app") and once after the first submission.
+// ─── Bottom install card (inside the logged-in app, all roles) ───────────────
+// Vendors: shows automatically unless snoozed ("Not now" = 3 days), never once installed,
+// and once after the first submission. Admins/clients (mostly desktop): only on demand from
+// the menu's "Install app"; it never pops up by itself for them.
 
-export default function InstallPrompt() {
+export default function InstallPrompt({ vendor = true }) {
   const [prompt, setPrompt] = useState(getPrompt);
-  const [open, setOpen] = useState(() => !!installVariant() && !isSnoozed(BANNER_SNOOZE_KEY));
+  const [open, setOpen] = useState(() => vendor && !!installVariant() && !isSnoozed(BANNER_SNOOZE_KEY));
 
   useEffect(() => {
     const onReady = () => {
       setPrompt(getPrompt());
-      if (!isSnoozed(BANNER_SNOOZE_KEY)) setOpen(true);
+      if (vendor && !isSnoozed(BANNER_SNOOZE_KEY)) setOpen(true);
     };
     const onShow = () => {
       setPrompt(getPrompt());
@@ -89,14 +90,14 @@ export default function InstallPrompt() {
       window.removeEventListener(PWA_SHOW_EVENT, onShow);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, []);
+  }, [vendor]);
 
   const variant = installVariant(); // re-evaluated each render (prompt state changes trigger it)
   const notNow = () => {
     snooze(BANNER_SNOOZE_KEY, 3);
     setOpen(false);
   };
-  const installAndroid = async () => {
+  const installNative = async () => {
     prompt.prompt();
     const { outcome } = await prompt.userChoice;
     clearPrompt(); // a captured prompt can only be used once
@@ -105,7 +106,7 @@ export default function InstallPrompt() {
     setOpen(false);
   };
 
-  const title = { android: "Install the app", ios: "Add to your Home Screen", inapp: "Open in your browser" }[variant];
+  const title = { native: "Install the app", ios: "Add to your Home Screen", inapp: "Open in your browser" }[variant];
 
   return (
     <AnimatePresence>
@@ -136,7 +137,9 @@ export default function InstallPrompt() {
                   <p className="text-xs text-text-muted mt-0.5">
                     {variant === "inapp"
                       ? "Needed to install & work offline"
-                      : "One-tap access · works offline · full screen"}
+                      : vendor
+                        ? "One-tap access · works offline · full screen"
+                        : "Opens in its own window · one click from your taskbar / home screen"}
                   </p>
                 </div>
                 <button onClick={notNow} aria-label="Close" className="p-1.5 rounded-lg text-text-muted hover:bg-bg-surface">
@@ -153,9 +156,9 @@ export default function InstallPrompt() {
               {variant === "inapp" && <InAppText />}
 
               <div className="flex gap-2">
-                {variant === "android" && (
+                {variant === "native" && (
                   <button
-                    onClick={installAndroid}
+                    onClick={installNative}
                     className="flex-1 py-2.5 rounded-xl text-sm font-display font-bold uppercase tracking-wider text-white bg-primary hover:bg-primary-dark transition-colors"
                   >
                     Install
@@ -164,7 +167,7 @@ export default function InstallPrompt() {
                 {variant === "inapp" && <CopyLinkButton />}
                 <button
                   onClick={notNow}
-                  className={`${variant === "android" ? "" : "flex-1"} px-4 py-2.5 rounded-xl text-sm font-semibold border border-[color:var(--color-border)] text-text-secondary`}
+                  className={`${variant === "native" ? "" : "flex-1"} px-4 py-2.5 rounded-xl text-sm font-semibold border border-[color:var(--color-border)] text-text-secondary`}
                 >
                   {variant === "ios" ? "Done" : "Not now"}
                 </button>

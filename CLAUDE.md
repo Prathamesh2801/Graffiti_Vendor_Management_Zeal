@@ -100,7 +100,8 @@ src/
   backend resend mode that needs no name and rejects unknown numbers.
 - Install help lives in `utils/pwaPrompt.js` + `components/features/vendor/InstallPrompt.jsx`:
   Android gets Chrome's install prompt as a dashboard card ("Not now" snoozes 3 days) plus an "Install app"
-  menu item; **iPhone gets the guide on the login/register pages**, because a Home Screen app on iOS has
+  menu item (the card is mounted in `AppLayout`; it pops up by itself only for vendors, while admins/clients,
+  usually on desktop Chrome/Edge, get it from the menu item only); **iPhone gets the guide on the login/register pages**, because a Home Screen app on iOS has
   separate storage from Safari (login + offline queue don't carry over), so installing must come before
   signing in. In-app browsers (Instagram etc.) get "Open in your browser".
 

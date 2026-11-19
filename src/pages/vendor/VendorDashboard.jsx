@@ -4,7 +4,6 @@ import { useOutletContext } from "react-router-dom";
 import UploadForm from "../../components/features/vendor/UploadForm";
 import SubmissionList from "../../components/features/vendor/SubmissionList";
 import AddImagesModal from "../../components/features/vendor/AddImagesModal";
-import InstallPrompt from "../../components/features/vendor/InstallPrompt";
 import { getVendorRecords } from "../../api/vendorApi";
 import { patchQueueItem } from "../../utils/offlineQueue";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
@@ -125,7 +124,6 @@ export default function VendorDashboard() {
         fontFamily: "var(--font-body)",
       }}
     >
-      <InstallPrompt />
 
       {/* ==========================  Header ================================= */}
       <div className="flex items-center justify-between px-4 pt-6">

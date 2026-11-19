@@ -2,9 +2,12 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import InstallPrompt from "../features/vendor/InstallPrompt";
+import { useAuth } from "../../context/AuthContext";
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user } = useAuth();
   const [vendorMeta, setVendorMeta] = useState({
     isOnline: navigator.onLine,
     syncingNow: false,
@@ -15,6 +18,9 @@ export default function AppLayout() {
     <div style={{ minHeight: "100vh", background: "var(--color-bg)" }}>
       {/* Sidebar drawer — renders as fixed overlay when open */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* Install card for every role; pops up by itself only for vendors */}
+      <InstallPrompt vendor={user?.role === "vendor"} />
 
       {/* Content always fills 100% width — sidebar never displaces it */}
       <div

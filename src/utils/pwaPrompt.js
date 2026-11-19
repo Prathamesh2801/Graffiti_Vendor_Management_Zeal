@@ -1,8 +1,9 @@
 // PWA install helpers shared by the dashboard banner, the login/register hint and the menu.
 //
 // Platform facts this is built around:
-// - Android Chrome fires `beforeinstallprompt` (once, often before React mounts) → we keep it
-//   and show our own "Install" button. The installed app shares Chrome's storage/login.
+// - Chrome / Edge (Android AND desktop Windows/Mac) fire `beforeinstallprompt` (once, often before
+//   React mounts) → we keep it and show our own "Install" button. The installed app shares the
+//   browser's storage/login. Desktop browsers also show their own install icon in the address bar.
 // - iPhone has no install API: the user must use Share → Add to Home Screen, and the
 //   home-screen app gets SEPARATE storage from Safari (login + offline queue don't carry
 //   over) → on iPhone we nudge installing *before* signing in.
@@ -48,12 +49,13 @@ export const isInAppBrowser = () =>
 
 export const isInstalled = () => isStandalone() || localStorage.getItem(INSTALLED_KEY) === "1";
 
-/** Which install help applies right now: "android" | "ios" | "inapp" | null (nothing to offer). */
+/** Which install help applies right now: "native" (browser install prompt: Android / desktop Chrome
+ *  & Edge) | "ios" | "inapp" | null (nothing to offer, e.g. installed or Firefox desktop). */
 export function installVariant() {
   if (isInstalled()) return null;
   if (isInAppBrowser()) return "inapp";
   if (isIos()) return "ios";
-  return deferredPrompt ? "android" : null;
+  return deferredPrompt ? "native" : null;
 }
 
 export const isSnoozed = (key) => Date.now() < Number(localStorage.getItem(key) || 0);

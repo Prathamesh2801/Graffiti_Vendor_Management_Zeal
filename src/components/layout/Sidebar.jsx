@@ -224,8 +224,8 @@ export default function Sidebar({ isOpen, onClose }) {
                 </NavLink>
               ))}
 
-              {/* Vendors: install any time (hidden once installed / where impossible) */}
-              {role === "vendor" && installVariant() && (
+              {/* All roles: install any time (hidden once installed / where the browser can't) */}
+              {installVariant() && (
                 <button
                   onClick={() => {
                     onClose();
