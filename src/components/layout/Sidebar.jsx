@@ -74,6 +74,10 @@ export default function Sidebar({ isOpen, onClose }) {
               top: 0,
               left: 0,
               height: "100dvh",
+              // iPhone: keep logo/close button below the notch and "Sign out" above the home bar.
+              paddingTop: "env(safe-area-inset-top)",
+              paddingBottom: "env(safe-area-inset-bottom)",
+              paddingLeft: "env(safe-area-inset-left)",
               width: 240,
               zIndex: 1001,
               background: "var(--color-secondary)",

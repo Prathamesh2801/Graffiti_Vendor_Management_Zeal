@@ -25,8 +25,11 @@ export default function Header({
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between px-6 h-16 backdrop-blur-md"
+      className="sticky top-0 z-30 flex items-center justify-between px-6 backdrop-blur-md"
       style={{
+        // Clear the iPhone status bar / Dynamic Island when it overlaps the page.
+        paddingTop: "env(safe-area-inset-top)",
+        height: "calc(4rem + env(safe-area-inset-top))",
         background: "rgba(255,255,255,0.88)",
         borderBottom: "1px solid var(--color-border)",
       }}

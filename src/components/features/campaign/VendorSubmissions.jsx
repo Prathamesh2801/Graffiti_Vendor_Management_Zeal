@@ -575,7 +575,7 @@ function BulkBar({ count, onApproveAll, onRejectAll, onClear, loading }) {
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 72, opacity: 0 }}
       transition={{ type: "spring", damping: 22 }}
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 rounded-2xl shadow-2xl w-[calc(100%-2rem)] sm:w-auto max-w-sm sm:max-w-none"
+      className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 rounded-2xl shadow-2xl w-[calc(100%-2rem)] sm:w-auto max-w-sm sm:max-w-none"
       style={{
         background: "var(--color-secondary)",
         border: "1px solid rgba(255,255,255,0.1)",
@@ -1173,7 +1173,8 @@ export default function VendorSubmissions({ campaign, onBack }) {
             ].map(([label, value, set, bounds]) => (
               <label
                 key={label}
-                className="flex items-center gap-2 px-3 rounded-xl text-sm cursor-pointer"
+                // Phones: label above the date (16px inputs need the full width); sm+: inline.
+                className="flex flex-col sm:flex-row sm:items-center gap-0 sm:gap-2 px-3 pt-1.5 sm:pt-0 rounded-xl text-sm cursor-pointer"
                 style={inputStyle}
                 title={`Submitted ${label.toLowerCase()} date`}
               >
@@ -1188,7 +1189,7 @@ export default function VendorSubmissions({ campaign, onBack }) {
                   value={value}
                   onChange={(e) => set(e.target.value)}
                   {...bounds}
-                  className="flex-1 min-w-0 py-2.5 bg-transparent outline-none cursor-pointer"
+                  className="w-full sm:flex-1 min-w-0 pb-1.5 sm:py-2.5 bg-transparent outline-none cursor-pointer"
                   style={{ color: "var(--color-text-primary)" }}
                 />
               </label>

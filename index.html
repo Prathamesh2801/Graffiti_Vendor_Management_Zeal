@@ -4,7 +4,16 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- viewport-fit=cover: use the full iPhone screen (notch / Dynamic Island / home bar);
+       content is kept clear of them with env(safe-area-inset-*) in CSS. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- Home Screen app on iPhone: runs full screen, light status bar with dark text (matches the
+       white header), proper icon + name instead of a page screenshot. -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Graffiti" />
+  <link rel="apple-touch-icon" href="/pwa-192.png" />
   <title>Graffiti Vendor Campaign</title>
 </head>
 

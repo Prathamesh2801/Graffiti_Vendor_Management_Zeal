@@ -27,7 +27,13 @@ export default function AppLayout() {
         />
 
         {/* Page content */}
-        <main style={{ flex: 1, padding: "28px 28px" }}>
+        <main
+          style={{
+            flex: 1,
+            padding: "28px",
+            paddingBottom: "calc(28px + env(safe-area-inset-bottom))", // above the iPhone home bar
+          }}
+        >
           <Outlet context={{ setVendorMeta }} />
         </main>
       </div>

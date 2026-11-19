@@ -177,7 +177,9 @@ export default function CampaignMap() {
       font-family: var(--font-body,'Barlow',sans-serif);
       background: var(--color-bg,#f5f4f0);
       color: var(--color-text-primary,#1a1a2e);
-      height: 100vh; width: 100vw;
+      /* dvh: iPhone Safari's 100vh includes the area behind its toolbar (bottom got hidden).
+         width 100% (not 100vw) so the body's safe-area side padding can't cause sideways scroll. */
+      height: 100vh; height: 100dvh; width: 100%;
       display: flex; flex-direction: column; overflow: hidden;
     }
 
@@ -185,8 +187,9 @@ export default function CampaignMap() {
     .cm-header {
       background: var(--color-secondary,#1a1a2e);
       border-bottom: 3px solid var(--color-primary,#e8420a);
-      height: 56px; flex-shrink: 0;
-      display: flex; align-items: center; gap: 10px; padding: 0 14px;
+      /* iPhone: grow by the status-bar / Dynamic Island inset so controls stay tappable. */
+      height: calc(56px + env(safe-area-inset-top)); flex-shrink: 0;
+      display: flex; align-items: center; gap: 10px; padding: env(safe-area-inset-top) 14px 0;
       z-index: 1100; position: relative;
     }
     .cm-logo {
@@ -395,6 +398,7 @@ export default function CampaignMap() {
       border-radius:16px 16px 0 0;
       box-shadow:0 -6px 36px rgba(26,26,46,.16);
       max-height:54vh; overflow-y:auto;
+      padding-bottom: env(safe-area-inset-bottom); /* above the iPhone home bar */
       transform:translateY(100%);
       transition:transform .28s cubic-bezier(.4,0,.2,1);
     }

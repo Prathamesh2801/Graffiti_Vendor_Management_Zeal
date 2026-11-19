@@ -115,7 +115,7 @@ export default function InstallPrompt() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 120, opacity: 0 }}
           transition={{ type: "spring", damping: 26, stiffness: 300 }}
-          className="fixed inset-x-0 bottom-0 z-50 flex justify-center p-3 sm:p-4 pointer-events-none"
+          className="fixed inset-x-0 bottom-0 z-50 flex justify-center p-3 sm:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pointer-events-none"
           role="dialog"
           aria-label={title}
         >

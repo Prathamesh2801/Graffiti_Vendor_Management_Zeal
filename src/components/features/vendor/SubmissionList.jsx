@@ -117,7 +117,7 @@ function Lightbox({ src, onClose }) {
         onClick={(e) => e.stopPropagation()}
       />
       <button
-        className="absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white"
+        className="absolute top-[calc(1.25rem+env(safe-area-inset-top))] right-[calc(1.25rem+env(safe-area-inset-right))] w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white"
         style={{
           background: "rgba(255,255,255,0.15)",
           backdropFilter: "blur(4px)",

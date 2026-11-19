@@ -109,6 +109,13 @@ src/
   that map to the same tokens. Don't hardcode hex colors (`VendorRegister` still does; that's legacy).
 - Animations use framer-motion; icons use lucide-react; toasts use react-hot-toast (`utils/ToasterOptions.jsx`).
 
+### iPhone (iOS Safari / Home Screen app)
+- Form fields are forced to 16px on touch devices (`index.css`) — below 16px iOS zooms the page on focus.
+  Don't "fix" that with `maximum-scale=1` (it blocks pinch-zoom on Android). Narrow mobile fields must fit 16px text.
+- Notch / Dynamic Island / home bar: `viewport-fit=cover` is on, so anything fixed or sticky to a screen edge
+  must pad with `env(safe-area-inset-*)` (see Header, Sidebar, InstallPrompt, BulkBar, Toaster, CampaignMap).
+  Use `100dvh`, not `100vh`, for full-screen layouts (iOS `100vh` hides content behind Safari's toolbar).
+
 ## Gotchas
 - ESLint uses `react-hooks` v7 (React Compiler rules): no setState called synchronously in an effect body, no ref
   reads during render, no components defined inside components. Initial-load `fetchX()` calls in effects are allowed.

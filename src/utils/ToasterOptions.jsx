@@ -4,6 +4,11 @@ export default function ToasterOptions() {
   return (
     <Toaster
       position="top-right"
+      // Keep toasts below the iPhone status bar / Dynamic Island.
+      containerStyle={{
+        top: "calc(16px + env(safe-area-inset-top))",
+        right: "calc(16px + env(safe-area-inset-right))",
+      }}
       toastOptions={{
         style: {
           fontFamily: "Barlow, sans-serif",
