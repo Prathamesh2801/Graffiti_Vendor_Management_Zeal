@@ -8,6 +8,7 @@ import {
 } from "../../../api/submissionApi";
 import { getUserFromStorage } from "../../../utils/userRoleLocalStorage";
 import { imageUrl } from "../../../utils/imageUrl";
+import { exportSubmissionsToExcel } from "../../../utils/exportSubmissions";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_META = {
@@ -365,7 +366,7 @@ function SubmissionCard({
                         disabled={updatingSub}
                         onClick={() => doUpdateSub(s)}
                       />
-                    )
+                    ),
                   )}
                 </div>
               )}
@@ -463,9 +464,7 @@ function SubmissionCard({
                       <div
                         className="aspect-square rounded-xl overflow-hidden cursor-zoom-in relative"
                         style={{ border: "1px solid var(--color-border)" }}
-                        onClick={() =>
-                          setLightboxSrc(imageUrl(img.Wall_Image))
-                        }
+                        onClick={() => setLightboxSrc(imageUrl(img.Wall_Image))}
                       >
                         <img
                           src={imageUrl(img.Wall_Image)}
@@ -526,7 +525,7 @@ function SubmissionCard({
                                 disabled={updatingImgId === img.ID}
                                 onClick={() => doUpdateImg(img, s)}
                               />
-                            )
+                            ),
                           )}
                         </div>
                       )}
@@ -630,8 +629,13 @@ export default function VendorSubmissions({ campaign, onBack }) {
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterUser, setFilterUser] = useState("All");
   const [search, setSearch] = useState("");
+  // YYYY-MM-DD from <input type="date">; compared against Created_AT ("YYYY-MM-DD HH:MM:SS").
+  // ponytail: filtered in the browser — the API ignores date params today. Move server-side if lists get large.
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selected, setSelected] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // silent = background re-check after a write (no full-page spinner).
   // Returns the fresh records, or null on failure.
@@ -646,7 +650,8 @@ export default function VendorSubmissions({ campaign, onBack }) {
         }
         toast.error(res.Message || "Failed to load");
       } catch (err) {
-        if (err.response?.status !== 401) toast.error("Failed to fetch submissions");
+        if (err.response?.status !== 401)
+          toast.error("Failed to fetch submissions");
       } finally {
         if (!silent) setLoading(false);
       }
@@ -668,7 +673,10 @@ export default function VendorSubmissions({ campaign, onBack }) {
         `${notSaved.length} submission${notSaved.length !== 1 ? "s" : ""} not saved as ${newStatus} on the server`,
         { duration: 6000 },
       );
-      console.error("Status not persisted by API:", { newStatus, ids: notSaved });
+      console.error("Status not persisted by API:", {
+        newStatus,
+        ids: notSaved,
+      });
     }
   };
 
@@ -688,8 +696,8 @@ export default function VendorSubmissions({ campaign, onBack }) {
                 Status: newStatus,
               })),
             }
-          : r
-      )
+          : r,
+      ),
     );
 
   const applyImgUpdate = (subId, imgId, newStatus) =>
@@ -699,11 +707,11 @@ export default function VendorSubmissions({ campaign, onBack }) {
           ? {
               ...r,
               Campaign_Images: r.Campaign_Images.map((img) =>
-                img.ID === imgId ? { ...img, Status: newStatus } : img
+                img.ID === imgId ? { ...img, Status: newStatus } : img,
               ),
             }
-          : r
-      )
+          : r,
+      ),
     );
 
   const stats = {
@@ -719,6 +727,9 @@ export default function VendorSubmissions({ campaign, onBack }) {
   const filtered = records.filter((r) => {
     if (filterStatus !== "All" && r.Status !== filterStatus) return false;
     if (filterUser !== "All" && r.User_ID !== filterUser) return false;
+    const day = (r.Created_AT || "").slice(0, 10);
+    if (dateFrom && day < dateFrom) return false;
+    if (dateTo && day > dateTo) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
@@ -738,17 +749,68 @@ export default function VendorSubmissions({ campaign, onBack }) {
     });
   const selectAll = () => setSelected(new Set(filtered.map((r) => r.ID)));
   const clearSelect = () => setSelected(new Set());
-  const allSelected = filtered.length > 0 && selected.size === filtered.length;
-  const someSelected = selected.size > 0 && !allSelected;
+  // Only rows still visible under the current filters count as selected,
+  // so bulk actions never touch submissions the admin can't see.
+  const selectedVisible = filtered
+    .filter((r) => selected.has(r.ID))
+    .map((r) => r.ID);
+  const allSelected =
+    filtered.length > 0 && selectedVisible.length === filtered.length;
+  const someSelected = selectedVisible.length > 0 && !allSelected;
+  const hasFilters =
+    search ||
+    filterStatus !== "All" ||
+    filterUser !== "All" ||
+    dateFrom ||
+    dateTo;
+  const clearFilters = () => {
+    setSearch("");
+    setFilterStatus("All");
+    setFilterUser("All");
+    setDateFrom("");
+    setDateTo("");
+  };
+
+  // Exports exactly what is on screen (all active filters). Clients get no status columns;
+  // the API already limits them to approved photos.
+  const handleExport = async () => {
+    const filterSummary = [
+      search && `Search: "${search}"`,
+      filterStatus !== "All" && `Status: ${filterStatus}`,
+      filterUser !== "All" && `Vendor: ${filterUser}`,
+      (dateFrom || dateTo) && `Submitted: ${dateFrom || "…"} to ${dateTo || "…"}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    setExporting(true);
+    try {
+      const { submissions, photos } = await exportSubmissionsToExcel({
+        campaign,
+        records: filtered,
+        includeStatus: isAdmin,
+        exportedBy: `${user?.username ?? "unknown"} (${isAdmin ? "Admin" : "Client"})`,
+        filterSummary,
+      });
+      toast.success(`Exported ${submissions} submission${submissions !== 1 ? "s" : ""} · ${photos} photo${photos !== 1 ? "s" : ""}`);
+    } catch (err) {
+      console.error("Export failed:", err);
+      toast.error("Export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Sequential on purpose: parallel PUTs to the PHP endpoint can race each other.
   const bulkUpdate = async (newStatus) => {
     setBulkLoading(true);
     const okIds = [];
     let failed = 0;
-    for (const id of selected) {
+    for (const id of selectedVisible) {
       try {
-        const res = await updateSubmissionStatus({ uniqueId: id, status: newStatus });
+        const res = await updateSubmissionStatus({
+          uniqueId: id,
+          status: newStatus,
+        });
         if (res.Status) okIds.push(id);
         else failed++;
       } catch {
@@ -756,8 +818,11 @@ export default function VendorSubmissions({ campaign, onBack }) {
       }
     }
     if (okIds.length)
-      toast.success(`${okIds.length} submission${okIds.length !== 1 ? "s" : ""} marked ${newStatus}`);
-    if (failed) toast.error(`${failed} update${failed !== 1 ? "s" : ""} failed`);
+      toast.success(
+        `${okIds.length} submission${okIds.length !== 1 ? "s" : ""} marked ${newStatus}`,
+      );
+    if (failed)
+      toast.error(`${failed} update${failed !== 1 ? "s" : ""} failed`);
     clearSelect();
     await confirmSaved(okIds, newStatus);
     setBulkLoading(false);
@@ -778,7 +843,6 @@ export default function VendorSubmissions({ campaign, onBack }) {
       }}
     >
       <div className="max-w-full px-3 sm:px-6 py-4 sm:py-6">
-
         {/* ── Header ── */}
         <div className="mb-6">
           {/* Mobile header: back button row + centered title block */}
@@ -963,56 +1027,91 @@ export default function VendorSubmissions({ campaign, onBack }) {
           </div>
         </div>
 
-        {/* ── Stats ── */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`grid grid-cols-2 ${
-            isAdmin ? "sm:grid-cols-5" : "sm:grid-cols-2"
-          } gap-2 sm:gap-3 mb-4 sm:mb-6`}
-        >
-          <StatCard
-            label="Total"
-            value={stats.total}
-            accentColor="var(--color-text-primary)"
-            loading={loading}
-          />
-          {isAdmin && (
+        {/* ── Stats ── admin: full breakdown · client: single total summary bar */}
+        {isAdmin ? (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-4 sm:mb-6"
+          >
+            <StatCard
+              label="Total"
+              value={stats.total}
+              accentColor="var(--color-text-primary)"
+              loading={loading}
+            />
             <StatCard
               label="Approved"
               value={stats.approved}
               accentColor="var(--color-success)"
               loading={loading}
             />
-          )}
-          {isAdmin && (
             <StatCard
               label="Rejected"
               value={stats.rejected}
               accentColor="var(--color-error)"
               loading={loading}
             />
-          )}
-          {isAdmin && (
             <StatCard
               label="Pending"
               value={stats.pending}
               accentColor="#8a6800"
               loading={loading}
             />
-          )}
-          <StatCard
-            label="Images"
-            value={stats.images}
-            accentColor="var(--color-complement)"
-            loading={loading}
-          />
-        </motion.div>
+            <StatCard
+              label="Images"
+              value={stats.images}
+              accentColor="var(--color-complement)"
+              loading={loading}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-4 rounded-2xl px-4 sm:px-6 py-4 mb-4 sm:mb-6"
+            style={{
+              background: "var(--color-bg-card)",
+              border: "1px solid var(--color-border)",
+              borderLeft: "4px solid var(--color-primary)",
+            }}
+          >
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+              style={{ background: "var(--color-primary-50)" }}
+            >
+              📋
+            </div>
+            <div className="min-w-0">
+              <div
+                className="text-[10px] uppercase tracking-widest font-semibold"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Total Submissions
+              </div>
+              <div
+                className="text-sm truncate hidden sm:block"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                Wall submissions received for this campaign
+              </div>
+            </div>
+            <div
+              className="ml-auto text-4xl font-bold leading-none"
+              style={{
+                fontFamily: "var(--font-display)",
+                color: "var(--color-text-primary)",
+              }}
+            >
+              {loading ? "—" : stats.total}
+            </div>
+          </motion.div>
+        )}
 
         {/* ── Filters ── */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mb-4">
           {/* Search — full width on mobile */}
-          <div className="relative flex-1">
+          <div className="relative flex-1 sm:min-w-[220px]">
             <span
               className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
               style={{ color: "var(--color-text-muted)" }}
@@ -1035,37 +1134,79 @@ export default function VendorSubmissions({ campaign, onBack }) {
             />
           </div>
 
-          {/* Admin filters — 2-col grid on mobile */}
-          {isAdmin && (
-            <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 sm:px-4 py-2.5 rounded-xl text-sm cursor-pointer outline-none"
-                style={inputStyle}
-              >
-                <option value="All">All Status</option>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+          {/* Status / vendor filters — 2-col grid on mobile */}
+          <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 sm:px-4 py-2.5 rounded-xl text-sm cursor-pointer outline-none"
+              style={inputStyle}
+            >
+              <option value="All">All Status</option>
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
 
-              <select
-                value={filterUser}
-                onChange={(e) => setFilterUser(e.target.value)}
-                className="px-3 sm:px-4 py-2.5 rounded-xl text-sm cursor-pointer outline-none"
+            <select
+              value={filterUser}
+              onChange={(e) => setFilterUser(e.target.value)}
+              className="px-3 sm:px-4 py-2.5 rounded-xl text-sm cursor-pointer outline-none"
+              style={inputStyle}
+            >
+              <option value="All">All Users</option>
+              {uniqueUsers.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Submitted-date range (inclusive). min/max stop From > To. */}
+          <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
+            {[
+              ["From", dateFrom, setDateFrom, { max: dateTo || undefined }],
+              ["To", dateTo, setDateTo, { min: dateFrom || undefined }],
+            ].map(([label, value, set, bounds]) => (
+              <label
+                key={label}
+                className="flex items-center gap-2 px-3 rounded-xl text-sm cursor-pointer"
                 style={inputStyle}
+                title={`Submitted ${label.toLowerCase()} date`}
               >
-                <option value="All">All Users</option>
-                {uniqueUsers.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <span
+                  className="text-[10px] font-semibold uppercase tracking-widest"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  {label}
+                </span>
+                <input
+                  type="date"
+                  value={value}
+                  onChange={(e) => set(e.target.value)}
+                  {...bounds}
+                  className="flex-1 min-w-0 py-2.5 bg-transparent outline-none cursor-pointer"
+                  style={{ color: "var(--color-text-primary)" }}
+                />
+              </label>
+            ))}
+          </div>
+
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold border cursor-pointer transition-all"
+              style={{
+                background: "var(--color-bg-card)",
+                borderColor: "var(--color-border)",
+                color: "var(--color-primary)",
+              }}
+            >
+              ✕ Clear
+            </button>
           )}
 
           <button
@@ -1079,6 +1220,16 @@ export default function VendorSubmissions({ campaign, onBack }) {
             }}
           >
             ↺ Refresh
+          </button>
+
+          <button
+            onClick={handleExport}
+            disabled={loading || exporting || filtered.length === 0}
+            title={hasFilters ? "Export the filtered submissions to Excel" : "Export all submissions to Excel"}
+            className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: "var(--color-secondary)" }}
+          >
+            {exporting ? "Exporting…" : `⬇ Export (${filtered.length})`}
           </button>
         </div>
 
@@ -1108,11 +1259,11 @@ export default function VendorSubmissions({ campaign, onBack }) {
               {allSelected
                 ? `All ${filtered.length} selected`
                 : someSelected
-                  ? `${selected.size} of ${filtered.length} selected`
+                  ? `${selectedVisible.length} of ${filtered.length} selected`
                   : `Select all ${filtered.length}`}
             </span>
 
-            {selected.size > 0 && (
+            {selectedVisible.length > 0 && (
               <>
                 <div
                   className="w-px h-4 hidden sm:block"
@@ -1176,13 +1327,9 @@ export default function VendorSubmissions({ campaign, onBack }) {
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
               No submissions found
             </p>
-            {(search || filterStatus !== "All" || filterUser !== "All") && (
+            {hasFilters && (
               <button
-                onClick={() => {
-                  setSearch("");
-                  setFilterStatus("All");
-                  setFilterUser("All");
-                }}
+                onClick={clearFilters}
                 className="text-xs underline underline-offset-2 cursor-pointer"
                 style={{ color: "var(--color-primary)" }}
               >
@@ -1225,14 +1372,14 @@ export default function VendorSubmissions({ campaign, onBack }) {
           </div>
         )}
 
-        {selected.size > 0 && <div className="h-20" />}
+        {selectedVisible.length > 0 && <div className="h-20" />}
       </div>
 
       {/* ── Floating Bulk Bar ── */}
       <AnimatePresence>
-        {isAdmin && selected.size > 0 && (
+        {isAdmin && selectedVisible.length > 0 && (
           <BulkBar
-            count={selected.size}
+            count={selectedVisible.length}
             onApproveAll={() => bulkUpdate("Approved")}
             onRejectAll={() => bulkUpdate("Rejected")}
             onClear={clearSelect}
