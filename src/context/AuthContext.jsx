@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import toast from "react-hot-toast";
 import { loginUser } from "../api/authApi";
 import { setUnauthorizedHandler } from "../api/api";
-import { getUserFromStorage } from "../utils/userRoleLocalStorage";
+import { getUserFromStorage, rememberLoginPortal } from "../utils/userRoleLocalStorage";
 
 const AuthContext = createContext(null);
 
@@ -55,6 +55,7 @@ export function AuthProvider({ children }) {
 
       const userData = { username, token: res.Token, role: res.Role.toLowerCase() };
       localStorage.setItem("user", JSON.stringify(userData));
+      rememberLoginPortal(userData.role); // logout / expiry return to the right login page
       setUser(userData);
       return { success: true, user: userData };
     } catch {

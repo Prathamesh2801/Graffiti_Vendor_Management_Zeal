@@ -28,7 +28,7 @@ Hash router (`/#/...`) because the PHP host has no SPA rewrites. The router is c
 | Path | Who | Page |
 |---|---|---|
 | `/login`, `/register` | public (vendors: phone + SMS OTP) | `pages/auth/Login`, `VendorRegister` |
-| `/admin-login` | public | `Login type="admin"` |
+| `/admin-login` | public — **Admin & Client** (username + password) | `Login type="admin"` |
 | `/geo?Campaign_ID=` | **public**, opened from QR codes | `pages/campaign/CampaignMap` (Leaflet) |
 | `/app/campaigns` | admin, client | `CampaignList` (clients read-only, `isAdmin` gates actions) |
 | `/app/campaigns/:id/submissions` | admin, client | `CampaignSubmissions` → `VendorSubmissions` (approve/reject) |
@@ -37,6 +37,8 @@ Hash router (`/#/...`) because the PHP host has no SPA rewrites. The router is c
 
 Guards: `ProtectedRoute` (logged in), `RoleRoute` (role check), `PublicRoute` (bounces logged-in users),
 `HomeRedirect` (role → landing page; edit `HOME_BY_ROLE` there). Admin/map pages are `React.lazy` chunks.
+Logged-out redirects use `loginPath()` (`utils/userRoleLocalStorage.js`): the last role that signed in on the device
+picks `/admin-login` (admin/client) or `/login` (vendor, the default). Keep the vendor page free of any staff links.
 
 ## Architecture
 

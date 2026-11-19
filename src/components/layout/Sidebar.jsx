@@ -36,7 +36,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const NAV_ITEMS = NAV_CONFIG[role] || [];
 
   const handleLogout = () => {
-    logout(); // ProtectedRoute redirects to /login
+    logout(); // ProtectedRoute redirects to this user's login page
     toast.success("Logged out successfully");
   };
 

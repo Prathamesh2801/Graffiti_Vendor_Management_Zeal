@@ -11,7 +11,7 @@ api.interceptors.request.use((config) => {
 });
 
 // AuthContext registers this so a 401 clears React state too (not just
-// localStorage) — the route guards then redirect to /login on their own.
+// localStorage) — the route guards then redirect to the right login page on their own.
 let onUnauthorized = () => {};
 export const setUnauthorizedHandler = (fn) => {
   onUnauthorized = fn;

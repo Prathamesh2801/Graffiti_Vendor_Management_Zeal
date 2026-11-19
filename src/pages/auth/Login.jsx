@@ -116,7 +116,7 @@ export default function Login({ type = "vendor" }) {
             Graffiti Campaign
           </h1>
           <p className="text-text-secondary text-sm mt-1 font-body">
-            {isVendor ? "Vendor sign in to continue" : "Administrator access portal"}
+            {isVendor ? "Vendor sign in to continue" : "Admin & Client sign in"}
           </p>
         </div>
 
