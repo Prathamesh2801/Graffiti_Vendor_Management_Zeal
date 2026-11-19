@@ -14,8 +14,16 @@ import { enqueue, patchQueueItem } from "../../../utils/offlineQueue";
 ───────────────────────────────────────────────── */
 const GEO_CACHE_KEY = "vendor_last_geo";
 
+const DENIED_MSG =
+  "Location is blocked for this app. Turn Location on for this site in your phone/browser settings, then tap Retry.";
+
 function getGeoLocation() {
   return new Promise((resolve, reject) => {
+    // Browsers only expose GPS on https:// (or localhost) pages.
+    if (!window.isSecureContext) {
+      reject(new Error("Location needs a secure (https) connection. Open the app via its https address."));
+      return;
+    }
     if (!navigator.geolocation) {
       reject(new Error("Geolocation not supported by this browser."));
       return;
@@ -27,8 +35,13 @@ function getGeoLocation() {
         localStorage.setItem(GEO_CACHE_KEY, coords);
         resolve(coords);
       },
-      () => {
-        // Attempt last-known offline fallback
+      (err) => {
+        // Blocked by the user: never substitute an old position — it may be a different wall.
+        if (err.code === err.PERMISSION_DENIED) {
+          reject(new Error(DENIED_MSG));
+          return;
+        }
+        // Weak/slow GPS: fall back to the last known position (marked "(cached)" in the UI).
         const cached = localStorage.getItem(GEO_CACHE_KEY);
         if (cached) {
           resolve(cached + " (cached)");
@@ -94,7 +107,7 @@ const GeoStatus = ({ status, coords, error, onFetch }) => {
           {cfg.label}
         </p>
         <p
-          className="text-xs truncate"
+          className={status === "error" ? "text-xs leading-snug" : "text-xs truncate"}
           style={{
             color:
               status === "ok"
@@ -171,6 +184,35 @@ export default function UploadForm({
       setGeoError(err.message || "Location access denied.");
     }
   }, []);
+
+  // Fetch location automatically when the step opens. Browsers remember the
+  // vendor's "Allow" per site, so after the first time this happens silently;
+  // the very first visit shows the browser's own one-time permission prompt.
+  // If location was blocked, skip straight to the how-to-fix message.
+  useEffect(() => {
+    if (isEditMode || geoCoords) return;
+    let cancelled = false;
+    (async () => {
+      let state = "prompt";
+      try {
+        // Permissions API: Chrome/Android, Safari 16+. Older browsers just fall through to fetch.
+        state = (await navigator.permissions?.query({ name: "geolocation" }))?.state ?? "prompt";
+      } catch {
+        /* unsupported → treat as "prompt" */
+      }
+      if (cancelled) return;
+      // On http:// browsers report "denied" too — let fetchGeo explain the https problem instead.
+      if (state === "denied" && window.isSecureContext) {
+        setGeoStatus("error");
+        setGeoError(DENIED_MSG);
+      } else {
+        fetchGeo();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once per opening of the upload step
 
   useEffect(() => {
     if (editingRecord?.imageIds) {
