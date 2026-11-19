@@ -10,7 +10,9 @@ import {
   ChevronRight,
   X,
   Tag,
+  Smartphone,
 } from "lucide-react";
+import { installVariant, requestInstallPrompt } from "../../utils/pwaPrompt";
 
 const NAV_CONFIG = {
   admin: [
@@ -217,6 +219,35 @@ export default function Sidebar({ isOpen, onClose }) {
                   )}
                 </NavLink>
               ))}
+
+              {/* Vendors: install any time (hidden once installed / where impossible) */}
+              {role === "vendor" && installVariant() && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    requestInstallPrompt();
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px dashed rgba(255,255,255,0.18)",
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontFamily: "var(--font-body)",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.7)",
+                    textAlign: "left",
+                    marginTop: 8,
+                  }}
+                >
+                  <Smartphone size={16} />
+                  <span style={{ flex: 1 }}>Install app</span>
+                </button>
+              )}
             </nav>
 
             {/* User + logout */}

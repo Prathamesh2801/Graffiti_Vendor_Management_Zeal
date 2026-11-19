@@ -86,6 +86,21 @@ src/
 - Images are compressed client-side (`compressImage`: max 1200px wide, JPEG 0.7) in both `UploadForm` and `AddImagesModal`.
 - Blob URLs: create them in `useMemo` and revoke them in effect cleanup, never in render.
 - The online/sync status reaches the Header via `useOutletContext().setVendorMeta`.
+- Location is fetched automatically on the upload step (`UploadForm`); the browser remembers the vendor's
+  one-time "Allow". The last-known position is used **only** for weak/slow GPS, never when permission is
+  denied (it could be a different wall). GPS needs https (or localhost).
+
+### Vendor auth & PWA install
+- Vendors log in with a 10-digit mobile number + SMS OTP (never expires). `Vendor/otp.php` registers a new
+  number, and **re-sends the same OTP** for an existing one. It always requires `Fullname`, so "Forgot OTP"
+  (`resendOtp`) sends the placeholder `"(OTP resend)"` (ignored for existing numbers). Stopgap: a mistyped,
+  unregistered number becomes an account with that name; delete those in User Management. Proper fix is a
+  backend resend mode that needs no name and rejects unknown numbers.
+- Install help lives in `utils/pwaPrompt.js` + `components/features/vendor/InstallPrompt.jsx`:
+  Android gets Chrome's install prompt as a dashboard card ("Not now" snoozes 3 days) plus an "Install app"
+  menu item; **iPhone gets the guide on the login/register pages**, because a Home Screen app on iOS has
+  separate storage from Safari (login + offline queue don't carry over), so installing must come before
+  signing in. In-app browsers (Instagram etc.) get "Open in your browser".
 
 ### Styling
 - Tailwind 3 plus CSS variables defined in `src/index.css` (`--color-primary`, `--color-bg-card`, `--font-display`, …),

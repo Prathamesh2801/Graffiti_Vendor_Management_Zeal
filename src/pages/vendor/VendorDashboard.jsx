@@ -8,6 +8,7 @@ import InstallPrompt from "../../components/features/vendor/InstallPrompt";
 import { getVendorRecords } from "../../api/vendorApi";
 import { patchQueueItem } from "../../utils/offlineQueue";
 import { useOfflineSync } from "../../hooks/useOfflineSync";
+import { nudgeInstallOnce } from "../../utils/pwaPrompt";
 
 const RECORDS_CACHE_KEY = "vendor_records_cache";
 const STEP_ORDER = ["campaign", "upload", "records"];
@@ -448,6 +449,7 @@ export default function VendorDashboard() {
                   goToStep("records");
                   refresh();
                   await syncAndRefresh();
+                  nudgeInstallOnce(); // first saved submission → one gentle install reminder
                 }}
                 editingRecord={editingRecord}
               />
